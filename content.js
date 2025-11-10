@@ -1,0 +1,1477 @@
+// ============================================
+// LOADING OVERLAY HELPERS
+// ============================================
+
+class LoadingOverlay {
+    constructor() {
+        this.overlay = null;
+        this.progressBar = null;
+        this.textElement = null;
+        this.subtextElement = null;
+        this.progressElement = null;
+        this.batchListElement = null;
+    }
+
+    show(text = 'Đang xử lý...', subtext = '') {
+        // Remove existing overlay
+        this.hide();
+
+        // Create overlay
+        this.overlay = document.createElement('div');
+        this.overlay.className = 'yun-loading-overlay';
+        
+        this.overlay.innerHTML = `
+            <div class="yun-loading-content">
+                <div class="yun-loading-spinner"></div>
+                <div class="yun-loading-text">${text}</div>
+                <div class="yun-loading-subtext">${subtext}</div>
+                <div class="yun-loading-progress-bar">
+                    <div class="yun-loading-progress-fill" style="width: 0%"></div>
+                </div>
+                <div class="yun-loading-progress">0 / 0</div>
+                <div class="yun-loading-batch-list"></div>
+            </div>
+        `;
+
+        document.body.appendChild(this.overlay);
+
+        // Store references
+        this.textElement = this.overlay.querySelector('.yun-loading-text');
+        this.subtextElement = this.overlay.querySelector('.yun-loading-subtext');
+        this.progressElement = this.overlay.querySelector('.yun-loading-progress');
+        this.progressBar = this.overlay.querySelector('.yun-loading-progress-fill');
+        this.batchListElement = this.overlay.querySelector('.yun-loading-batch-list');
+
+        // Prevent background clicks
+        this.overlay.addEventListener('click', (e) => {
+            if (e.target === this.overlay) {
+                e.stopPropagation();
+            }
+        });
+
+        console.log('[THG Extension] Loading overlay shown');
+    }
+
+    updateText(text) {
+        if (this.textElement) {
+            this.textElement.textContent = text;
+        }
+    }
+
+    updateSubtext(subtext) {
+        if (this.subtextElement) {
+            this.subtextElement.textContent = subtext;
+        }
+    }
+
+    updateProgress(current, total) {
+        if (this.progressElement) {
+            this.progressElement.textContent = `${current} / ${total}`;
+        }
+        
+        if (this.progressBar) {
+            const percentage = total > 0 ? (current / total * 100) : 0;
+            this.progressBar.style.width = `${percentage}%`;
+        }
+    }
+
+    hide() {
+        if (this.overlay) {
+            this.overlay.remove();
+            this.overlay = null;
+            console.log('[THG Extension] Loading overlay hidden');
+        }
+    }
+}
+
+// Global instance
+const loadingOverlay = new LoadingOverlay();
+
+// ============================================
+// PART 1: INJECT INTERCEPTOR (FIXED)
+// ============================================
+
+(function initInterceptor() {
+    // Inject script file vào page
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('injected.js');
+    script.onload = function () {
+        console.log('[THG Extension] Injected script loaded');
+        this.remove();
+    };
+    (document.head || document.documentElement).appendChild(script);
+
+    console.log('[THG Extension] Injecting interceptor script...');
+})();
+
+// ============================================
+// PART 2: RESPONSE HANDLER (UPDATED)
+// ============================================
+
+let pendingResponseResolvers = new Map(); // Đổi từ array sang Map
+let interceptorReady = false;
+
+// Wait for interceptor ready
+document.addEventListener('__thg_interceptor_ready__', () => {
+    interceptorReady = true;
+    console.log('[THG Extension] ✅ Interceptor is ready');
+});
+
+// Listen for responses via DOM events
+document.addEventListener('__thg_response__', (event) => {
+    const { url, method, data } = event.detail;
+    
+    // Tìm request ID từ URL hoặc element attribute
+    const requestId = extractRequestIdFromResponse(url, data);
+    
+    if (!requestId) {
+        console.warn('[THG Extension] No request ID found in response');
+        return;
+    }
+    
+    console.log('[THG Extension] Response received for request:', requestId);
+
+    // Resolve promise tương ứng với request ID
+    const resolver = pendingResponseResolvers.get(requestId);
+    if (resolver) {
+        try {
+            resolver.resolve(data);
+            pendingResponseResolvers.delete(requestId);
+            console.log('[THG Extension] ✅ Resolved request:', requestId);
+        } catch (e) {
+            console.error('[THG Extension] Error resolving:', e);
+            resolver.reject(e);
+        }
+    } else {
+        console.warn('[THG Extension] No pending resolver for:', requestId);
+    }
+});
+
+// Helper function để extract request ID
+function extractRequestIdFromResponse(url, data) {
+    // Option 1: Từ clicked element (best)
+    const clickedEl = document.querySelector('[data-request-id]');
+    if (clickedEl) {
+        const reqId = clickedEl.getAttribute('data-request-id');
+        clickedEl.removeAttribute('data-request-id'); // Clean up
+        return reqId;
+    }
+    
+    // Option 2: Từ URL pattern
+    const match = url.match(/sid[_=]([^&]+)/i);
+    if (match) return match[1];
+    
+    // Option 3: Từ timestamp (fallback)
+    return null;
+}
+
+// ============================================
+// PART 3: GET RESPONSE FUNCTION (UPDATED)
+// ============================================
+
+function getXExtendResponse(selector, requestId) {
+    return new Promise((resolve, reject) => {
+        if (!interceptorReady) {
+            reject(new Error('Interceptor chưa sẵn sàng'));
+            return;
+        }
+
+        let timeoutId;
+
+        const cleanup = () => {
+            clearTimeout(timeoutId);
+            pendingResponseResolvers.delete(requestId);
+        };
+
+        // Add to pending Map với requestId làm key
+        pendingResponseResolvers.set(requestId, {
+            selector,
+            timestamp: Date.now(),
+            resolve: (data) => {
+                try {
+                    let decodedData = data;
+
+                    // Try decode base64
+                    try {
+                        decodedData = atob(data);
+                        console.log('[THG Extension] Base64 decoded for', requestId);
+                    } catch (e) {
+                        // Not base64, use as is
+                    }
+
+                    cleanup();
+                    resolve(decodedData);
+                } catch (e) {
+                    cleanup();
+                    reject(e);
+                }
+            },
+            reject: (error) => {
+                cleanup();
+                reject(error);
+            }
+        });
+
+        console.log(`[THG Extension] [${requestId}] Added to pending Map, total:`, pendingResponseResolvers.size);
+
+        // Click element after small delay
+        setTimeout(() => {
+            const el = document.querySelector('a#' + CSS.escape(selector));
+            if (!el) {
+                console.error(`[THG Extension] [${requestId}] Element not found:`, selector);
+                cleanup();
+                reject(new Error('Không tìm thấy element: ' + selector));
+                return;
+            }
+
+            console.log(`[THG Extension] [${requestId}] Clicking element:`, selector);
+            
+            // Gắn requestId vào element để tracking
+            el.setAttribute('data-request-id', requestId);
+            
+            el.dispatchEvent(new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                view: window
+            }));
+        }, 100); // Giảm delay xuống 100ms
+
+        // Timeout 30s
+        timeoutId = setTimeout(() => {
+            console.error(`[THG Extension] [${requestId}] ⏱️ Timeout for selector:`, selector);
+            cleanup();
+            reject(new Error(`Timeout: Không nhận được response sau 30 giây (${selector})`));
+        }, 30000);
+    });
+}
+
+// ============================================
+// PART 4: PARSE ECOUNT DATA (UPDATED)
+// ============================================
+
+function parseEcountData(jsonData) {
+    try {
+        let data = jsonData;
+
+        // Nếu là string thì parse
+        if (typeof jsonData === 'string') {
+            const startPattern = '$.xextend(';
+            const startIndex = jsonData.indexOf(startPattern);
+
+            if (startIndex !== -1) {
+                let bracketCount = 0;
+                let jsonStart = startIndex + startPattern.length;
+                let jsonEnd = jsonStart;
+
+                for (let i = jsonStart; i < jsonData.length; i++) {
+                    if (jsonData[i] === '{') bracketCount++;
+                    if (jsonData[i] === '}') bracketCount--;
+
+                    if (bracketCount === 0) {
+                        jsonEnd = i + 1;
+                        break;
+                    }
+                }
+
+                const jsonString = jsonData.substring(jsonStart, jsonEnd);
+                data = JSON.parse(jsonString);
+            }
+        }
+
+        // Kiểm tra structure
+        if (!data || !data.InitDatas || !data.InitDatas.ViewData) {
+            console.error('Invalid data structure:', data);
+            return null;
+        }
+
+        const masterData = data.InitDatas.ViewData.Master;
+        const detailsString = data.InitDatas.ViewData.Details;
+        const defaultOption = data.DefaultOption;
+
+        // Parse Details nếu là string
+        const detailsData = typeof detailsString === 'string'
+            ? JSON.parse(detailsString)
+            : detailsString;
+
+        const result = {
+            // API format fields
+            carrier: "YUNEXPRESS",
+            productCode: "",
+            customerOrderNumber: "",
+            platformOrderNumber: "",
+            trackingNumber: masterData.ADD_TXT?.ADD_TXT_01 || "",
+            referenceNumbers: [],
+            weightUnit: "KG",
+            sizeUnit: "CM",
+            
+            receiver: {
+                firstName: masterData.P_DES2 || "",
+                lastName: "",
+                company: "",
+                countryCode: masterData.ADD_TXT?.ADD_TXT_05 || "",
+                province: masterData.ADD_TXT?.ADD_TXT_09 || "",
+                city: masterData.ADD_TXT?.ADD_TXT_08 || "",
+                addressLines: [masterData.ADD_TXT?.ADD_TXT_06 || ""],
+                postalCode: masterData.P_DES1 || "",
+                phoneNumber: masterData.ADD_TXT?.ADD_TXT_03 || "",
+                email: masterData.P_DES4 || "",
+                certificateType: "",
+                certificateCode: ""
+            },
+            
+            packages: [],
+            
+            declarationInfo: [],
+            
+            customsNumber: {
+                tax_number: "",
+                ioss_code: "",
+                vat_code: "",
+                eori_number: ""
+            },
+            
+            extraServices: [],
+            
+            sensitiveType: "",
+            labelType: "PDF",
+            sourceCode: "",
+            erpOrderCode: defaultOption.DocNo || "",
+            erpStatus: "Chờ xác nhận",
+            ecountLink: window.location.hash
+        };
+
+        // Xử lý chi tiết sản phẩm
+        if (Array.isArray(detailsData)) {
+            detailsData.forEach(item => {
+                const qty = parseFloat(item.QTY) || 0;
+                const unitPrice = parseFloat(item.ADD_TXT?.ADD_TXT_06) || 0;
+                const sellingPrice = parseFloat(item.ADD_TXT?.ADD_TXT_07) || 0;
+                const unitWeight = parseFloat(item.ADD_TXT?.ADD_TXT_02) || 0;
+
+                const dimensions = item.ADD_TXT?.ADD_TXT_04 || '';
+                let length = 0, width = 0, height = 0;
+                if (dimensions) {
+                    const parts = dimensions.split(/x|×/i).map(p => {
+                        const match = p.match(/[\d.]+/);
+                        return match ? parseFloat(match[0]) : 0;
+                    });
+
+                    length = parts[0] || 0;
+                    width  = parts[1] || 0;
+                    height = parts[2] || 0;
+                }
+
+                result.packages.push({
+                    length: length,
+                    width: width,
+                    height: height,
+                    weight: parseFloat(item.ADD_TXT?.ADD_TXT_05) || 0
+                });
+
+                result.declarationInfo.push({
+                    sku_code: "",
+                    name_en: item.PROD_DES || "",
+                    name_local: item.PROD_DES || "",
+                    quantity: parseInt(qty) || 0,
+                    unit_price: unitPrice,
+                    selling_price: sellingPrice,
+                    unit_weight: unitWeight,
+                    hs_code: "",
+                    sales_url: "",
+                    currency: "USD",
+                    material: "",
+                    purpose: "",
+                    brand: "",
+                    spec: "",
+                    model: "",
+                    remark: ""
+                });
+            });
+        }
+
+        // Nếu không có packages, thêm default
+        if (result.packages.length === 0) {
+            result.packages.push({
+                length: 0,
+                width: 0,
+                height: 0,
+                weight: 0
+            });
+        }
+
+        console.log('[THG Extension] Parsed data:', result);
+        return result;
+
+    } catch (error) {
+        console.error('[THG Extension] Error parsing data:', error);
+        return null;
+    }
+}
+
+// ============================================
+// PART 5: FETCH ORDER INFO VIA API
+// ============================================
+
+async function getOrderInfoFromAPI(thgCode) {
+    try {
+        const url = `https://thg-api.nicetech.vn/api/orders/info/${thgCode}`;
+
+        console.log('[THG Extension] Fetching from API:', url);
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include'
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log('[THG Extension] API response:', data);
+            return data;
+        } else {
+            console.error('[THG Extension] API error:', response.status);
+            return null;
+        }
+    } catch (error) {
+        console.error('[THG Extension] Error fetching from API:', error);
+        return null;
+    }
+}
+
+// ============================================
+// PART 6: GET ORDER DATA (UPDATED WITH REQUEST ID)
+// ============================================
+
+async function getOrderData(selector, requestId) {
+    try {
+        console.log('[THG Extension] Getting data from ECOUNT, requestId:', requestId);
+
+        const jsonData = await getXExtendResponse(selector, requestId);
+        const parsedData = parseEcountData(jsonData);
+
+        if (parsedData) {
+            return {
+                success: true,
+                data: parsedData,
+                source: 'ecount',
+                requestId: requestId,
+                selector: selector
+            };
+        }
+
+        return {
+            success: false,
+            error: 'Cannot parse ECOUNT data',
+            selector: selector,
+            requestId: requestId
+        };
+
+    } catch (error) {
+        console.error('[THG Extension] Error getting order data:', error);
+        return {
+            success: false,
+            error: error.message,
+            selector: selector,
+            requestId: requestId
+        };
+    }
+}
+
+// ============================================
+// PART 7: MODAL CREATION
+// ============================================
+
+function createOrderModal(ordersData) {
+    const existingModal = document.querySelector('.yun-modal-overlay');
+    if (existingModal) {
+        existingModal.remove();
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'yun-modal-overlay';
+
+    const modal = document.createElement('div');
+    modal.className = 'yun-modal';
+
+    const header = document.createElement('div');
+    header.className = 'yun-modal-header';
+    header.innerHTML = `
+    <h3>Confirm Label Purchase - ${ordersData.length} order(s)</h3>
+    <button class="yun-modal-close">&times;</button>
+  `;
+
+    const body = document.createElement('div');
+    body.className = 'yun-modal-body';
+
+    ordersData.forEach((orderData, index) => {
+        const orderSection = createOrderSection(orderData, index);
+        body.appendChild(orderSection);
+    });
+
+    const footer = document.createElement('div');
+    footer.className = 'yun-modal-footer';
+    footer.innerHTML = `
+    <div class="yun-bulk-actions">
+      <button class="yun-btn yun-btn-sm" onclick="document.querySelectorAll('.yun-order-content').forEach(el => el.classList.add('active')); document.querySelectorAll('.yun-order-toggle').forEach(btn => btn.textContent = '▲');">Expand All</button>
+      <button class="yun-btn yun-btn-sm" onclick="document.querySelectorAll('.yun-order-content').forEach(el => el.classList.remove('active')); document.querySelectorAll('.yun-order-toggle').forEach(btn => btn.textContent = '▼');">Collapse All</button>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button class="yun-btn yun-btn-cancel">Cancel</button>
+      <button class="yun-btn yun-btn-submit">Purchase Labels</button>
+    </div>
+  `;
+
+    modal.appendChild(header);
+    modal.appendChild(body);
+    modal.appendChild(footer);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    const closeBtn = header.querySelector('.yun-modal-close');
+    const cancelBtn = footer.querySelector('.yun-btn-cancel');
+    const submitBtn = footer.querySelector('.yun-btn-submit');
+
+    closeBtn.onclick = () => overlay.remove();
+    cancelBtn.onclick = () => overlay.remove();
+    // overlay.onclick = (e) => {
+    //     if (e.target === overlay) overlay.remove();
+    // };
+
+    submitBtn.onclick = () => handleSubmitOrders(ordersData);
+}
+
+// ============================================
+// PART 8: CREATE ORDER SECTION
+// ============================================
+
+function createOrderSection(orderData, index) {
+    const section = document.createElement('div');
+    section.className = 'yun-order-section';
+    section.setAttribute('data-order-index', index);
+
+    const data = orderData.data;
+    const receiver = data.receiver;
+
+    const maxItems = Math.max(
+        data.packages?.length || 0,
+        data.declarationInfo?.length || 0,
+        1
+    );
+
+    section.innerHTML = `
+    <div class="yun-order-header">
+      <h4>#${index + 1} - ${data.erpOrderCode || 'N/A'}</h4>
+      <button class="yun-order-toggle" onclick="this.closest('.yun-order-section').querySelector('.yun-order-content').classList.toggle('active'); this.textContent = this.textContent === '▼' ? '▲' : '▼';">▼</button>
+    </div>
+    
+    <div class="yun-order-content ${index === 0 ? 'active' : ''}">
+
+      <!-- Main info table -->
+      <div class="yun-table-wrapper">
+        <table class="yun-compact-table">
+          <thead>
+            <tr>
+              <th style="width: 100px;">Carrier</th>
+              <th style="width: 100px;">Routing Code</th>
+              <th style="width: 100px;">Add. Service</th>
+              <th style="width: 120px;">Label Type</th>
+              <th style="width: 120px;">Weight Unit</th>
+              <th style="width: 120px;">Size Unit</th>
+              <th style="width: 100px;">IOSS Code</th>
+              <th style="width: 100px;">Tax Number</th>
+              <th style="width: 100px;">Vat Code</th>
+              <th style="width: 100px;">EORI Number</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <select class="yun-input" data-field="carrier">
+                  <option value="YUNEXPRESS" selected>YUNEXPRESS</option>
+                </select>
+              </td>
+              <td>
+                <select class="yun-input" data-field="productCode">
+                  <option value="">Select</option>
+                  <option value="VN-YTYCPREC" ${data.productCode === 'VN-YTYCPREC' ? 'selected' : ''}>VN-YTYCPREC</option>
+                  <option value="YTYCPREC" ${data.productCode === 'YTYCPREC' ? 'selected' : ''}>YTYCPREC</option>
+                  <option value="VNTHZXR" ${data.productCode === 'VNTHZXR' ? 'selected' : ''}>VNTHZXR</option>
+                  <option value="VNMUZXR" ${data.productCode === 'VNMUZXR' ? 'selected' : ''}>VNMUZXR</option>
+                  <option value="S1002" ${data.productCode === 'S1002' ? 'selected' : ''}>S1002 (test)</option>
+                </select>
+              </td>
+              <td><input type="text" class="yun-input" data-field="extraServices.0.extra_code" value="${data.extraServices?.[0]?.extra_code || ''}"></td>
+              <td>
+                <select class="yun-input" data-field="labelType">
+                  <option value="PDF" selected>PDF</option>
+                  <option value="ZPL">ZPL</option>
+                  <option value="PNG">PNG</option>
+                </select>
+              </td>
+              <td><input type="text" class="yun-input" data-field="weightUnit" value="${data.weightUnit || 'KG'}"></td>
+              <td><input type="text" class="yun-input" data-field="sizeUnit" value="${data.sizeUnit || 'CM'}"></td>
+              <td><input type="text" class="yun-input" data-field="customsNumber.ioss_code" value="${data.customsNumber?.ioss_code || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="customsNumber.tax_number" value="${data.customsNumber?.tax_number || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="customsNumber.vat_code" value="${data.customsNumber?.vat_code || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="customsNumber.eori_number" value="${data.customsNumber?.eori_number || ''}"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="yun-divider">
+        <span class="yun-divider-label">Receiver Info</span>
+      </div>
+
+      <!-- Receiver table -->
+      <div class="yun-table-wrapper">
+        <table class="yun-compact-table">
+          <thead>
+            <tr>
+              <th style="width: 100px;">First Name</th>
+              <th style="width: 100px;">Last Name</th>
+              <th style="width: 100px;">Phone</th>
+              <th style="width: 150px;">Email</th>
+              <th style="width: 60px;">Country</th>
+              <th style="width: 100px;">Province</th>
+              <th style="width: 100px;">City</th>
+              <th style="width: 80px;">Postal</th>
+              <th style="width: 200px;">Address</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><input type="text" class="yun-input" data-field="receiver.firstName" value="${receiver.firstName || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.lastName" value="${receiver.lastName || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.phoneNumber" value="${receiver.phoneNumber || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.email" value="${receiver.email || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.countryCode" value="${receiver.countryCode || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.province" value="${receiver.province || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.city" value="${receiver.city || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.postalCode" value="${receiver.postalCode || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.addressLines" value="${receiver.addressLines ? receiver.addressLines.join(', ') : ''}"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="yun-divider">
+        <span class="yun-divider-label">Items (${maxItems})</span>
+      </div>
+
+      <!-- Items table -->
+      <div class="yun-table-wrapper">
+        <table class="yun-compact-table">
+          <thead>
+            <tr>
+              <th style="width: 30px;">#</th>
+              <th style="width: 80px;">SKU</th>
+              <th style="width: 150px;">Name (EN)</th>
+              <th style="width: 150px;">Name (Local)</th>
+              <th style="width: 50px;">Qty</th>
+              <th style="width: 70px;">Price</th>
+              <th style="width: 70px;">Sell Price</th>
+              <th style="width: 60px;">Weight</th>
+              <th style="width: 80px;">HS Code</th>
+              <th style="width: 50px;">Curr</th>
+              <th style="width: 60px;">L (cm)</th>
+              <th style="width: 60px;">W (cm)</th>
+              <th style="width: 60px;">H (cm)</th>
+              <th style="width: 70px;">Wt (g)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Array.from({ length: maxItems }).map((_, i) => {
+                const pkg = data.packages?.[i] || {};
+                const declaration = data.declarationInfo?.[i] || {};
+                return `
+                  <tr>
+                    <td style="text-align: center; color: #999;">${i + 1}</td>
+                    <td><input type="text" class="yun-input" data-field="declarationInfo.${i}.sku_code" value="${declaration.sku_code || ''}"></td>
+                    <td><input type="text" class="yun-input" data-field="declarationInfo.${i}.name_en" value="${declaration.name_en || ''}"></td>
+                    <td><input type="text" class="yun-input" data-field="declarationInfo.${i}.name_local" value="${declaration.name_local || ''}"></td>
+                    <td><input type="number" class="yun-input" data-field="declarationInfo.${i}.quantity" value="${declaration.quantity || ''}"></td>
+                    <td><input type="number" step="0.01" class="yun-input" data-field="declarationInfo.${i}.unit_price" value="${declaration.unit_price || ''}"></td>
+                    <td><input type="number" step="0.01" class="yun-input" data-field="declarationInfo.${i}.selling_price" value="${declaration.selling_price || ''}"></td>
+                    <td><input type="number" class="yun-input" data-field="declarationInfo.${i}.unit_weight" value="${declaration.unit_weight || ''}"></td>
+                    <td><input type="text" class="yun-input" data-field="declarationInfo.${i}.hs_code" value="${declaration.hs_code || ''}"></td>
+                    <td><input type="text" class="yun-input" data-field="declarationInfo.${i}.currency" value="${declaration.currency || 'USD'}"></td>
+                    <td><input type="number" class="yun-input" data-field="packages.${i}.length" value="${pkg.length || ''}"></td>
+                    <td><input type="number" class="yun-input" data-field="packages.${i}.width" value="${pkg.width || ''}"></td>
+                    <td><input type="number" class="yun-input" data-field="packages.${i}.height" value="${pkg.height || ''}"></td>
+                    <td><input type="number" class="yun-input" data-field="packages.${i}.weight" value="${pkg.weight || ''}"></td>
+                  </tr>
+                `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+    return section;
+}
+
+
+// ============================================
+// PART 9: COLLECT ORDER DATA
+// ============================================
+
+function collectOrderData(section, originalData) {
+    const inputs = section.querySelectorAll('.yun-input');
+    const updatedData = JSON.parse(JSON.stringify(originalData.data));
+
+    inputs.forEach(input => {
+        const field = input.getAttribute('data-field');
+        if (!field || input.readOnly) return;
+
+        const value = input.value.trim();
+        const fieldPath = field.split('.');
+
+        let target = updatedData;
+        for (let i = 0; i < fieldPath.length - 1; i++) {
+            const key = fieldPath[i];
+
+            // Handle array indices
+            if (!isNaN(fieldPath[i + 1])) {
+                const arrayIndex = parseInt(fieldPath[i + 1]);
+                if (!target[key]) target[key] = [];
+                if (!target[key][arrayIndex]) target[key][arrayIndex] = {};
+                target = target[key][arrayIndex];
+                i++; // Skip next iteration
+            } else {
+                if (!target[key]) target[key] = {};
+                target = target[key];
+            }
+        }
+
+        const lastKey = fieldPath[fieldPath.length - 1];
+
+        // Xử lý các trường đặc biệt
+        if (field === 'receiver.addressLines') {
+            target[lastKey] = value.split(',').map(s => s.trim()).filter(s => s);
+        } else if (input.type === 'number') {
+            target[lastKey] = value ? parseFloat(value) : 0;
+        } else {
+            target[lastKey] = value;
+        }
+    });
+
+    // **THÊM XỬ LÝ ĐẶC BIỆT: Đảm bảo extraServices luôn là mảng**
+    if (updatedData.extraServices && !Array.isArray(updatedData.extraServices)) {
+        const extraCode = updatedData.extraServices.extra_code || '';
+        updatedData.extraServices = extraCode ? [{ extra_code: extraCode }] : [];
+    }
+
+    return updatedData;
+}
+
+// ============================================
+// PART 10: SUBMIT ORDERS
+// ============================================
+
+async function handleSubmitOrders(ordersData) {
+    const submitBtn = document.querySelector('.yun-btn-submit');
+    const originalText = submitBtn.innerText;
+    submitBtn.disabled = true;
+    submitBtn.innerText = 'Đang xử lý...';
+
+    try {
+        // Thu thập dữ liệu từ tất cả các order sections
+        const processedOrders = [];
+
+        ordersData.forEach((orderData, index) => {
+            const section = document.querySelector(`[data-order-index="${index}"]`);
+            const updatedData = collectOrderData(section, orderData);
+            processedOrders.push(updatedData);
+        });
+
+        console.log('[THG Extension] Processed orders:', processedOrders);
+
+        const response = await fetch('https://thg-api.nicetech.vn/api/orders/labels/purchase', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify({ orders: processedOrders })
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+        console.log('[THG Extension] Purchase result:', result);
+        alert('✅ Mua label thành công cho ' + processedOrders.length + ' đơn hàng!');
+        document.querySelector('.yun-modal-overlay')?.remove();
+        } else {
+        console.error('[THG Extension] Purchase failed:', result);
+
+        // Ghép lỗi gọn gàng nếu có validationErrors
+        let message = result.message || 'Lỗi không xác định';
+        if (result?.data?.validationErrors?.length) {
+            const details = result.data.validationErrors
+            .map(v => {
+                const order = v.customerOrderNumber || v.erpOrderCode || `Order ${v.orderIndex + 1}`;
+                const errs = v.errors.map(e => `• ${e.field}: ${e.message}`).join('\n');
+                return `- ${order}:\n${errs}`;
+            })
+            .join('\n\n');
+            message += '\n\n' + details;
+        }
+
+        alert('❌ ' + message);
+        }
+
+
+    } catch (error) {
+        console.error('[THG Extension] Error submitting orders:', error);
+        alert('❌ Có lỗi xảy ra: ' + error.message);
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = originalText;
+    }
+}
+
+const BATCH_CONFIG = {
+    SIZE: 5,           // Số request mỗi batch
+    DELAY: 2000,       // Delay giữa các batch (ms)
+    CLICK_STAGGER: 50  // Delay giữa các click trong batch (ms)
+};
+
+function injectButton(titleElement) {
+    if (document.querySelector(".buy-label-ecount-btn")) {
+        return;
+    }
+
+    const button = document.createElement("button");
+    button.className = "buy-label-ecount-btn";
+    button.innerText = "Mua label";
+
+    button.onclick = async () => {
+        const links = document.querySelectorAll('tbody tr[data-row-sid].active a[id*="_inv_s$data_dt_no_cell_item_sid_"]');
+
+        if (!links || links.length === 0) {
+            alert('Không tìm thấy đơn hàng nào!');
+            return;
+        }
+
+        console.log('[THG Extension] Tìm thấy', links.length, 'đơn hàng');
+
+        button.disabled = true;
+        
+        // Show loading overlay
+        loadingOverlay.show(
+            'Đang tải thông tin đơn hàng',
+            `Tổng cộng ${links.length} đơn hàng`
+        );
+
+        try {
+            const orderInfos = await processBatches(
+                Array.from(links).map(link => link.id),
+                links.length,
+                BATCH_CONFIG
+            );
+
+            // Hide loading overlay
+            loadingOverlay.hide();
+
+            if (orderInfos.length === 0) {
+                alert('⚠️ Không lấy được thông tin đơn hàng nào!');
+                return;
+            }
+
+            console.log('[THG Extension] ✅ Hoàn thành:', orderInfos.length, 'đơn hàng');
+            createOrderModal(orderInfos);
+
+        } catch (error) {
+            loadingOverlay.hide();
+            console.error('[THG Extension] Error:', error);
+            alert('❌ Có lỗi xảy ra: ' + error.message);
+        } finally {
+            button.disabled = false;
+            button.innerText = "Mua label";
+
+            // Close popup after delay
+            await new Promise(resolve => setTimeout(resolve, 500));
+            document.querySelector('[data-popup-id] #slipClose')?.click();
+        }
+    };
+
+    titleElement.parentElement.appendChild(button);
+    console.log('[THG Extension] Button injected');
+}
+
+// ============================================
+// BATCH PROCESSING HELPER (WITH LOADING OVERLAY INTEGRATION)
+// ============================================
+
+async function processBatches(selectors, totalOrders, config) {
+    const { SIZE, DELAY, CLICK_STAGGER } = config;
+    const orderInfos = [];
+    const totalBatches = Math.ceil(selectors.length / SIZE);
+    
+    const errors = [];
+    let completedCount = 0;
+
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        const start = batchIndex * SIZE;
+        const end = Math.min(start + SIZE, selectors.length);
+        const batchSelectors = selectors.slice(start, end);
+        const batchNum = batchIndex + 1;
+        
+        // Update loading overlay for current batch
+        loadingOverlay.updateText(`Đang xử lý Batch ${batchNum}/${totalBatches}`);
+        loadingOverlay.updateSubtext(`Đơn hàng ${start + 1}-${end} / ${totalOrders}`);
+        
+        console.log(`[THG Extension] 🚀 Batch ${batchNum}/${totalBatches}: Processing ${batchSelectors.length} orders`);
+
+        // Create batch promises
+        const batchPromises = batchSelectors.map((selector, indexInBatch) => {
+            const globalIndex = start + indexInBatch;
+            const requestId = `req_${Date.now()}_${globalIndex}_${Math.random().toString(36).substr(2, 9)}`;
+            
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    resolve(
+                        getOrderData(selector, requestId)
+                            .then(result => {
+                                // Update progress after each successful fetch
+                                if (result && result.success) {
+                                    completedCount++;
+                                    loadingOverlay.updateProgress(completedCount, totalOrders);
+                                }
+                                return result;
+                            })
+                            .catch(err => {
+                                completedCount++;
+                                loadingOverlay.updateProgress(completedCount, totalOrders);
+                                return {
+                                    success: false,
+                                    error: err.message,
+                                    selector,
+                                    requestId
+                                };
+                            })
+                    );
+                }, indexInBatch * CLICK_STAGGER);
+            });
+        });
+
+        // Execute batch
+        const batchResults = await Promise.all(batchPromises);
+        
+        // Collect results
+        const successResults = batchResults.filter(r => r && r.success);
+        const failedResults = batchResults.filter(r => r && !r.success);
+        
+        orderInfos.push(...successResults);
+        errors.push(...failedResults);
+
+
+        console.log(`[THG Extension] ✅ Batch ${batchNum}: ${successResults.length}/${batchSelectors.length} success, ${failedResults.length} failed`);
+        
+        // Delay before next batch
+        if (batchIndex < totalBatches - 1) {
+            loadingOverlay.updateSubtext(`⏸️ Chờ ${DELAY / 1000}s trước batch tiếp theo...`);
+            console.log(`[THG Extension] ⏸️  Waiting ${DELAY}ms...`);
+            await new Promise(resolve => setTimeout(resolve, DELAY));
+        }
+    }
+
+    // Final update
+    loadingOverlay.updateText('✅ Hoàn thành!');
+    loadingOverlay.updateSubtext(`Đã tải ${orderInfos.length}/${totalOrders} đơn hàng thành công`);
+    loadingOverlay.updateProgress(totalOrders, totalOrders);
+
+    // Log summary
+    if (errors.length > 0) {
+        console.warn('[THG Extension] ⚠️ Failed requests:', errors);
+        console.warn(`[THG Extension] Success rate: ${orderInfos.length}/${selectors.length} (${(orderInfos.length/selectors.length*100).toFixed(1)}%)`);
+    }
+
+    // Wait a bit before hiding to show completion
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    return orderInfos;
+}
+
+// ============================================
+// PART 12: OBSERVER
+// ============================================
+
+function tryInjectOnMainPage() {
+    const header = document.querySelector('.wrapper-frame-body #btn-header-bookmark[data-item-key="menu_name_header_data_model"]');
+    if (!header) return;
+
+    const text = header.innerText.normalize('NFC').trim();
+    if (text !== "Danh sách đơn bán hàng") return;
+
+    // Lấy tất cả nút "Thêm mới" ở footer (thường có 2)
+    const newButtons = document.querySelectorAll('#footer_toolbar_toolbar_item_new button');
+    if (!newButtons.length) return;
+
+    newButtons.forEach((btn) => {
+        // Nếu đã có buy-label-btn trong cùng parent thì bỏ qua
+        if (btn.parentElement.querySelector('.buy-label-ecount-btn')) return;
+        injectButton(btn);
+    });
+}
+
+// ============================================
+// PART 13: STATUS TRACKING & DISPLAY (FIXED)
+// ============================================
+
+class StatusTracker {
+    constructor() {
+        this.statusCache = new Map(); // Cache status để tránh call API liên tục
+        this.currentCodes = new Set(); // Track codes hiện tại
+        this.renderedCodes = new Set(); // Track codes đã render để tránh render lại
+        this.isProcessing = false;
+        this.codeColumnIndex = -1;
+        this.observer = null;
+        this.debounceTimer = null;
+    }
+
+    /**
+     * Tìm index của cột "Code-THG"
+     */
+    findCodeColumnIndex() {
+        const thead = document.querySelector('.wrapper-frame-body thead');
+        if (!thead) return -1;
+
+        const headers = thead.querySelectorAll('th');
+        for (let i = 0; i < headers.length; i++) {
+            const text = headers[i].innerText.trim();
+            if (text === 'Code-THG') {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Lấy tất cả codes từ tbody
+     */
+    getCodesFromTable() {
+        if (this.codeColumnIndex === -1) {
+            this.codeColumnIndex = this.findCodeColumnIndex();
+            if (this.codeColumnIndex === -1) {
+                return [];
+            }
+        }
+
+        const tbody = document.querySelector('.wrapper-frame-body tbody');
+        if (!tbody) return [];
+
+        const rows = tbody.querySelectorAll('tr[data-row-sid]');
+        const codes = [];
+
+        rows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length > this.codeColumnIndex) {
+                const cell = cells[this.codeColumnIndex];
+                const codeElement = cell.querySelector('.code-text') || cell;
+                const code = codeElement.innerText.trim();
+                
+                if (code && code !== '' && code !== '\u00A0') {
+                    codes.push({
+                        code: code,
+                        cell: cell,
+                        row: row
+                    });
+                }
+            }
+        });
+
+        return codes;
+    }
+
+    /**
+     * Kiểm tra xem danh sách codes có thay đổi không
+     */
+    hasCodesChanged(newCodes) {
+        const newCodeSet = new Set(newCodes.map(c => c.code));
+        
+        // Kiểm tra size
+        if (newCodeSet.size !== this.currentCodes.size) {
+            return true;
+        }
+
+        // Kiểm tra từng code
+        for (const code of newCodeSet) {
+            if (!this.currentCodes.has(code)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Call API để lấy status
+     */
+    async fetchStatuses(codes) {
+        try {
+            console.log('[THG Extension] Fetching statuses for', codes.length, 'orders');
+
+            const response = await fetch('https://thg-api.nicetech.vn/api/orders/status/batch', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    erp_order_codes: codes
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                return result.data;
+            }
+
+            throw new Error('Invalid API response');
+
+        } catch (error) {
+            console.error('[THG Extension] Error fetching statuses:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Tạo status badge HTML
+     */
+    createStatusBadge(statusInfo) {
+        const statusColors = {
+            'waiting_creation': '#ff9800',
+            'fetching_tracking': '#2196f3',
+            'waiting_tracking': '#ff9800',
+            'updating_tracking': '#2196f3',
+            'waiting_tracking_update': '#ff9800',
+            'updating_status': '#2196f3',
+            'waiting_status_update': '#ff9800',
+            'in_transit': '#2196f3',
+            'completed': '#4caf50',
+            'failed': '#f44336',
+            'unknown': '#999'
+        };
+
+        const color = statusColors[statusInfo.status] || '#999';
+        
+        return `
+            <div style="
+                display: inline-block;
+                padding: 2px 6px;
+                background: ${color};
+                color: white;
+                border-radius: 10px;
+                font-size: 10px;
+                font-weight: 500;
+                white-space: nowrap;
+                line-height: 1.3;
+            " title="${statusInfo.label}">
+                ${statusInfo.label}
+            </div>
+        `;
+    }
+
+    /**
+     * Kiểm tra cell đã có badge chưa và badge có đúng không
+     */
+    isCellAlreadyRendered(cell, statusInfo) {
+        const existingBadge = cell.querySelector('[data-status-badge]');
+        if (!existingBadge) return false;
+
+        // Kiểm tra xem status có thay đổi không
+        const currentStatus = existingBadge.getAttribute('data-status-code');
+        return currentStatus === statusInfo.status;
+    }
+
+    /**
+     * Cập nhật status vào cells
+     */
+    updateStatusInCells(codesData, statusResults) {
+        let updatedCount = 0;
+
+        statusResults.forEach(statusInfo => {
+            // Bỏ qua not_found
+            if (statusInfo.status === 'not_found') {
+                return;
+            }
+
+            const codeData = codesData.find(c => c.code === statusInfo.erp_order_code);
+            if (!codeData) return;
+
+            const cell = codeData.cell;
+
+            // Kiểm tra đã render đúng chưa
+            if (this.isCellAlreadyRendered(cell, statusInfo)) {
+                return;
+            }
+
+            // Xóa badge cũ nếu có
+            const oldBadge = cell.querySelector('[data-status-badge]');
+            if (oldBadge) {
+                oldBadge.remove();
+            }
+
+            // Tạo container nếu chưa có
+            let container = cell.querySelector('.code-status-container');
+            if (!container) {
+                const originalContent = cell.innerText.trim();
+                
+                // Tạo container với layout cải thiện
+                container = document.createElement('div');
+                container.className = 'code-status-container';
+                container.style.cssText = `
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 4px;
+                    width: 100%;
+                `;
+                
+                // Code text phía trên
+                const codeSpan = document.createElement('span');
+                codeSpan.className = 'code-text';
+                codeSpan.textContent = originalContent;
+                codeSpan.style.cssText = `
+                    font-weight: 500;
+                    color: inherit;
+                    width: 100%;
+                `;
+                
+                container.appendChild(codeSpan);
+                
+                cell.innerHTML = '';
+                cell.appendChild(container);
+                
+                // Set cell style để không bị overflow
+                cell.style.minWidth = '140px';
+                cell.style.verticalAlign = 'middle';
+            }
+
+            // Thêm badge mới phía dưới code
+            const badge = document.createElement('span');
+            badge.setAttribute('data-status-badge', 'true');
+            badge.setAttribute('data-status-code', statusInfo.status);
+            badge.innerHTML = this.createStatusBadge(statusInfo);
+            container.appendChild(badge);
+
+            // Cache status
+            this.statusCache.set(statusInfo.erp_order_code, statusInfo);
+            this.renderedCodes.add(statusInfo.erp_order_code);
+            
+            updatedCount++;
+        });
+
+        if (updatedCount > 0) {
+            console.log('[THG Extension] ✅ Updated status for', updatedCount, 'orders');
+        }
+    }
+
+    /**
+     * Process và update statuses
+     */
+    async processStatuses() {
+        if (this.isProcessing) {
+            console.log('[THG Extension] Already processing statuses, skip...');
+            return;
+        }
+
+        try {
+            this.isProcessing = true;
+
+            // Lấy codes từ table
+            const codesData = this.getCodesFromTable();
+            
+            if (codesData.length === 0) {
+                console.log('[THG Extension] No codes found in table');
+                return;
+            }
+
+            const codes = codesData.map(c => c.code);
+
+            // Kiểm tra xem có thay đổi không
+            const hasChanged = this.hasCodesChanged(codesData);
+            
+            if (!hasChanged) {
+                // Codes không đổi, nhưng vẫn cần check xem UI có cần update không
+                // (trường hợp row bị re-render bởi ECount)
+                const cachedStatuses = codes
+                    .map(code => this.statusCache.get(code))
+                    .filter(s => s !== undefined && s.status !== 'not_found');
+                
+                if (cachedStatuses.length > 0) {
+                    this.updateStatusInCells(codesData, cachedStatuses);
+                }
+                return;
+            }
+
+            console.log('[THG Extension] Codes changed, fetching statuses for', codes.length, 'orders');
+
+            // Update current codes
+            this.currentCodes = new Set(codes);
+
+            // Reset rendered codes khi có thay đổi
+            this.renderedCodes.clear();
+
+            // Fetch statuses từ API
+            const statusResults = await this.fetchStatuses(codes);
+
+            if (statusResults.length > 0) {
+                // Filter out not_found
+                const validStatuses = statusResults.filter(s => s.status !== 'not_found');
+                
+                if (validStatuses.length > 0) {
+                    this.updateStatusInCells(codesData, validStatuses);
+                }
+            }
+
+        } catch (error) {
+            console.error('[THG Extension] Error processing statuses:', error);
+        } finally {
+            this.isProcessing = false;
+        }
+    }
+
+    /**
+     * Bắt đầu observe table changes
+     */
+    startObserving() {
+        // Dừng observer cũ nếu có
+        this.stopObserving();
+
+        // Tạo observer mới
+        this.observer = new MutationObserver((mutations) => {
+            // Kiểm tra xem có thay đổi quan trọng không
+            const hasImportantChange = mutations.some(mutation => {
+                // Chỉ quan tâm thay đổi trong tbody
+                if (mutation.target.tagName === 'TBODY') return true;
+                if (mutation.target.closest && mutation.target.closest('tbody')) return true;
+                
+                // Kiểm tra added nodes
+                const hasNewRows = Array.from(mutation.addedNodes).some(node => {
+                    if (node.nodeType !== 1) return false; // Chỉ element nodes
+                    return node.tagName === 'TR' || (node.closest && node.closest('tbody'));
+                });
+                
+                if (hasNewRows) return true;
+
+                // Kiểm tra removed nodes
+                const hasRemovedRows = Array.from(mutation.removedNodes).some(node => {
+                    if (node.nodeType !== 1) return false;
+                    return node.tagName === 'TR' || (node.closest && node.closest('tbody'));
+                });
+
+                return hasRemovedRows;
+            });
+
+            if (hasImportantChange) {
+                console.log('[THG Extension] Important table change detected');
+                
+                // Debounce: chờ 1000ms sau thay đổi cuối cùng (tăng từ 500ms)
+                clearTimeout(this.debounceTimer);
+                this.debounceTimer = setTimeout(() => {
+                    this.processStatuses();
+                }, 1000);
+            }
+        });
+
+        // Observe wrapper-frame-body với config tối ưu
+        const frameBody = document.querySelector('.wrapper-frame-body');
+        if (frameBody) {
+            this.observer.observe(frameBody, {
+                childList: true,    // Chỉ quan tâm add/remove nodes
+                subtree: true,      // Observe descendants
+                attributes: false,  // Không quan tâm attribute changes
+                characterData: false // Không quan tâm text changes
+            });
+            console.log('[THG Extension] Started observing table changes');
+
+            // Process ngay lần đầu
+            setTimeout(() => this.processStatuses(), 1500);
+        }
+    }
+
+    /**
+     * Dừng observe
+     */
+    stopObserving() {
+        if (this.observer) {
+            this.observer.disconnect();
+            this.observer = null;
+        }
+        clearTimeout(this.debounceTimer);
+    }
+
+    /**
+     * Reset tracker
+     */
+    reset() {
+        this.stopObserving();
+        this.statusCache.clear();
+        this.currentCodes.clear();
+        this.renderedCodes.clear();
+        this.codeColumnIndex = -1;
+        this.isProcessing = false;
+    }
+}
+
+// Global instance
+const statusTracker = new StatusTracker();
+
+// ============================================
+// PART 14: INTEGRATE STATUS TRACKER
+// ============================================
+
+/**
+ * Kiểm tra và start status tracking nếu đang ở trang order list
+ */
+function checkAndStartStatusTracking() {
+    const header = document.querySelector('.wrapper-frame-body #btn-header-bookmark[data-item-key="menu_name_header_data_model"]');
+    if (!header) {
+        statusTracker.stopObserving();
+        return;
+    }
+
+    const text = header.innerText.normalize('NFC').trim();
+    if (text === "Danh sách đơn bán hàng") {
+        // Đợi table load xong
+        setTimeout(() => {
+            const codeColumnIndex = statusTracker.findCodeColumnIndex();
+            if (codeColumnIndex !== -1) {
+                console.log('[THG Extension] Found "Code-THG" column, starting status tracking...');
+                statusTracker.startObserving();
+            }
+        }, 500);
+    } else {
+        statusTracker.stopObserving();
+    }
+}
+
+// ============================================
+// PART 15: UPDATE MAIN OBSERVER
+// ============================================
+
+// Cập nhật observer chính để bao gồm status tracking
+const observer = new MutationObserver(() => {
+    tryInjectOnMainPage();
+    checkAndStartStatusTracking();
+});
+
+// Start observer mới
+observer.observe(document.body, { childList: true, subtree: true });
+
+// Gọi ngay lần đầu
+tryInjectOnMainPage();
+checkAndStartStatusTracking();
+
+console.log('[THG Extension] Content script loaded with status tracking');

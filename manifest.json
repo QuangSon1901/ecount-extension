@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "THG Order Label Extension",
+  "version": "1.0.0",
+  "description": "Extension to buy labels for THG orders",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://thg-api.nicetech.vn/*",
+    "https://loginia.ecount.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["style.css"],
+      "run_at": "document_end",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["injected.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

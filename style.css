@@ -1,0 +1,802 @@
+/* Style cho button mới */
+.buy-label-ecount-btn {
+    margin-left: 0 !important;
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    margin-top: -4px;
+    border-left: none !important;
+    padding: 5px 10px;
+    background-color: #ffffff;
+    color: #333333;
+    border: 1px solid rgb(222, 226, 230);
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.buy-label-ecount-btn:hover {
+    background-color: #f8f9fa;
+    border-color: #4CAF50;
+}
+
+/* Modal overlay */
+.yun-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+
+/* Modal container */
+.yun-modal {
+    background: white;
+    border-radius: 8px;
+    width: 90vw;
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Modal header */
+.yun-modal-header {
+    padding: 10px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.yun-modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+}
+
+.yun-modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: #999;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.yun-modal-close:hover {
+    background-color: #f5f5f5;
+    color: #333;
+}
+
+/* Modal body */
+.yun-modal-body {
+    padding: 10px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Order section */
+.yun-order-section {
+    margin-bottom: 30px;
+    border: 1px solid #ebeffd;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.yun-order-section:last-child {
+    margin-bottom: 0;
+}
+
+.yun-order-header {
+    background: #3250b9;
+    padding: 4px 10px;
+}
+
+.yun-order-header h4 {
+    margin: 0;
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.yun-order-content {
+    padding: 10px;
+}
+
+/* Table scroll wrapper */
+.yun-table-scroll {
+    overflow-x: auto;
+    margin-bottom: 10px;
+}
+
+.yun-table-scroll::-webkit-scrollbar {
+    height: 8px;
+}
+
+.yun-table-scroll::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.yun-table-scroll::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.yun-table-scroll::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Detail table */
+.yun-detail-table {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.yun-detail-table th {
+    background-color: #f8f9fa;
+    padding: 10px 8px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border: 1px solid #dee2e6;
+    white-space: nowrap;
+    font-size: 12px;
+}
+
+.yun-detail-table td {
+    padding: 8px;
+    border: 1px solid #dee2e6;
+}
+
+/* Items table */
+.yun-items-table {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.yun-items-table th {
+    padding: 10px 8px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border: 1px solid #dee2e6;
+    white-space: nowrap;
+    font-size: 12px;
+}
+
+.yun-package-header {
+    background-color: #e8f5e9 !important;
+    color: #2e7d32 !important;
+    filter: grayscale(1);
+}
+
+.yun-declaration-header {
+    background-color: #fff3e0 !important;
+    color: #e65100 !important;
+}
+
+.yun-items-table td {
+    padding: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.yun-items-table tbody tr:hover {
+    background-color: #f9f9f9;
+}
+
+/* Input styles */
+.yun-input {
+    width: 100%;
+    min-width: 100px;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+
+.yun-input:focus {
+    outline: none;
+    border-color: #3250b9;
+    background-color: #ebeffd;
+}
+
+.yun-input-readonly,
+.yun-input:readonly {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+    color: #666;
+}
+
+.yun-input-wide {
+    min-width: 200px;
+}
+
+/* Modal footer */
+.yun-modal-footer {
+    padding: 4px 10px;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.yun-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.yun-btn-cancel {
+    background-color: #f5f5f5;
+    color: #666;
+}
+
+.yun-btn-cancel:hover {
+    background-color: #e0e0e0;
+}
+
+.yun-btn-submit {
+    background-color: #3250b9;
+    color: white;
+}
+
+.yun-btn-submit:hover {
+    background-color: #3250b9;
+}
+
+.yun-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Loading Overlay */
+.yun-loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #ffff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+}
+
+.yun-loading-content {
+    background: white;
+    border-radius: 12px;
+    padding: 40px 60px;
+    text-align: center;
+    min-width: 300px;
+}
+
+.yun-loading-spinner {
+    width: 60px;
+    height: 60px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #3250b9;
+    border-radius: 50%;
+    animation: yun-spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes yun-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.yun-loading-text {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.yun-loading-subtext {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.yun-loading-progress {
+    font-size: 12px;
+    color: #999;
+    margin-top: 15px;
+    font-family: monospace;
+}
+
+.yun-loading-progress-bar {
+    width: 100%;
+    height: 6px;
+    background-color: #f0f0f0;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 15px;
+}
+
+.yun-loading-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3250b9, #4CAF50);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+/* Batch progress list */
+.yun-loading-batch-list {
+    margin-top: 20px;
+    text-align: left;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.yun-loading-batch-item {
+    display: flex;
+    align-items: center;
+    padding: 8px;
+    margin-bottom: 5px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.yun-loading-batch-item.processing {
+    background: #e3f2fd;
+    border-left: 3px solid #2196F3;
+}
+
+.yun-loading-batch-item.success {
+    background: #e8f5e9;
+    border-left: 3px solid #4CAF50;
+}
+
+.yun-loading-batch-item.pending {
+    background: #f5f5f5;
+    opacity: 0.6;
+}
+
+.yun-loading-batch-icon {
+    margin-right: 10px;
+    font-size: 16px;
+}
+
+/* Modal cơ bản */
+.yun-modal {
+    background: white;
+    border-radius: 4px;
+    width: 95vw;
+    max-width: 1600px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.yun-modal-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #ddd;
+    background: #f5f5f5;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.yun-modal-header h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+}
+
+.yun-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #666;
+    cursor: pointer;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    line-height: 1;
+}
+
+.yun-modal-close:hover {
+    color: #000;
+}
+
+.yun-modal-body {
+    padding: 12px;
+    overflow-y: auto;
+    background: #fafafa;
+}
+
+/* Order card đơn giản */
+.yun-order-section {
+    margin-bottom: 12px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+}
+
+.yun-order-section:last-child {
+    margin-bottom: 0;
+}
+
+.yun-order-header {
+    background: #cccccc85;
+    padding: 6px 12px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.yun-order-header h4 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+}
+
+.yun-order-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    color: #666;
+    padding: 2px 8px;
+}
+
+.yun-order-toggle:hover {
+    color: #000;
+}
+
+.yun-order-content {
+    padding: 10px;
+    display: none;
+}
+
+.yun-order-content.active {
+    display: block;
+}
+
+/* Table compact */
+.yun-compact-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+.yun-compact-table th {
+    padding: 4px 6px;
+    text-align: left;
+    font-weight: 600;
+    color: #555;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    font-size: 11px;
+}
+
+.yun-compact-table td {
+    padding: 3px 6px;
+    border: 1px solid #e0e0e0;
+}
+
+.yun-compact-table tbody tr:hover {
+    background-color: #f9f9f9;
+}
+
+/* Input compact */
+.yun-input {
+    width: 100%;
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    font-size: 12px;
+    background: white;
+    box-sizing: border-box;
+}
+
+.yun-input:focus {
+    outline: none;
+    border-color: #4CAF50;
+}
+
+.yun-input-readonly {
+    background-color: #f0f0f0;
+    color: #666;
+    font-weight: 500;
+}
+
+/* Section divider */
+.yun-divider {
+    border-top: 1px solid #e0e0e0;
+    margin: 8px 0;
+    position: relative;
+}
+
+.yun-divider-label {
+    position: absolute;
+    top: -8px;
+    left: 8px;
+    background: white;
+    padding: 0 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #666;
+}
+
+/* Footer */
+.yun-modal-footer {
+    padding: 10px 16px;
+    border-top: 1px solid #ddd;
+    background: #f5f5f5;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.yun-bulk-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.yun-btn {
+    padding: 6px 16px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    background: white;
+}
+
+.yun-btn:hover {
+    background: #f5f5f5;
+}
+
+.yun-btn-cancel {
+    color: #666;
+}
+
+.yun-btn-submit {
+    background-color: #4CAF50;
+    color: white;
+    border-color: #4CAF50;
+}
+
+.yun-btn-submit:hover {
+    background-color: #45a049;
+}
+
+.yun-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.yun-btn-sm {
+    padding: 3px 10px;
+    font-size: 11px;
+}
+
+/* Summary row */
+.yun-summary-row {
+    display: flex;
+    gap: 16px;
+    padding: 6px 10px;
+    background: #f9f9f9;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 12px;
+}
+
+.yun-summary-item {
+    display: flex;
+    gap: 4px;
+}
+
+.yun-summary-label {
+    color: #666;
+    font-weight: 500;
+}
+
+.yun-summary-value {
+    color: #333;
+    font-weight: 600;
+}
+
+/* Wrapper cho table scroll */
+.yun-table-wrapper {
+    overflow-x: auto;
+    margin: 8px 0;
+    border: 1px solid #e0e0e0;
+    border-radius: 3px;
+    border: none !important;
+}
+
+.yun-table-wrapper::-webkit-scrollbar {
+    height: 6px;
+}
+
+.yun-table-wrapper::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.yun-table-wrapper::-webkit-scrollbar-thumb {
+    background: #999;
+    border-radius: 3px;
+}
+
+.yun-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #666;
+}
+
+/* Table compact */
+.yun-compact-table {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin: 0;
+}
+
+.yun-compact-table th {
+    padding: 4px 6px;
+    text-align: left;
+    font-weight: 600;
+    color: #555;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.yun-compact-table td {
+    padding: 3px 6px;
+    border: 1px solid #e0e0e0;
+}
+
+.yun-compact-table tbody tr:hover {
+    background-color: #f9f9f9;
+}
+
+/* Input compact */
+.yun-input {
+    width: 100%;
+    min-width: 60px;
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    border-radius: 2px;
+    font-size: 12px;
+    background: white;
+    box-sizing: border-box;
+}
+
+.yun-input:focus {
+    outline: none;
+    border-color: #4CAF50;
+}
+
+.yun-input-readonly {
+    background-color: #f0f0f0;
+    color: #666;
+    font-weight: 500;
+}
+
+/* Status badge styles */
+.code-status-container {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    flex-wrap: nowrap !important;
+}
+
+.code-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+[data-status-badge] {
+    flex-shrink: 0;
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Hover effect for status badge */
+[data-status-badge]:hover {
+    transform: scale(1.05);
+    transition: transform 0.2s;
+}
+
+/* Status badge styles - IMPROVED */
+.code-status-container {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 4px !important;
+    width: 100% !important;
+    padding: 4px 0 !important;
+}
+
+.code-text {
+    font-weight: 500;
+    color: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+[data-status-badge] {
+    flex-shrink: 0;
+    animation: fadeIn 0.3s ease-in;
+}
+
+[data-status-badge] > div {
+    display: inline-block !important;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Hover effect for status badge */
+[data-status-badge]:hover {
+    transform: scale(1.02);
+    transition: transform 0.2s;
+}
+
+/* Cell styling */
+td:has(.code-status-container) {
+    min-width: 140px !important;
+    vertical-align: middle !important;
+    padding: 8px 4px !important;
+}
