@@ -1,6 +1,4 @@
-// ============================================
-// LOADING OVERLAY HELPERS
-// ============================================
+const API_URL='https://express.thgfulfill.com';
 
 class LoadingOverlay {
     constructor() {
@@ -414,7 +412,7 @@ function parseEcountData(jsonData) {
 
 async function getOrderInfoFromAPI(thgCode) {
     try {
-        const url = `https://thg-api.nicetech.vn/api/orders/info/${thgCode}`;
+        const url = `${API_URL}/api/orders/info/${thgCode}`;
 
         console.log('[THG Extension] Fetching from API:', url);
 
@@ -589,17 +587,27 @@ function createOrderSection(orderData, index) {
             <tr>
               <td>
                 <select class="yun-input" data-field="carrier">
-                  <option value="YUNEXPRESS" selected>YUNEXPRESS</option>
+                  <option value="YUNEXPRESS">(Vietnam) YUNEXPRESS</option>
+                  <option value="YUNEXPRESS_CN">(China) YUNEXPRESS</option>
                 </select>
               </td>
               <td>
                 <select class="yun-input" data-field="productCode">
                   <option value="">Select</option>
-                  <option value="VN-YTYCPREC" ${data.productCode === 'VN-YTYCPREC' ? 'selected' : ''}>VN-YTYCPREC</option>
-                  <option value="YTYCPREC" ${data.productCode === 'YTYCPREC' ? 'selected' : ''}>YTYCPREC</option>
-                  <option value="VNTHZXR" ${data.productCode === 'VNTHZXR' ? 'selected' : ''}>VNTHZXR</option>
-                  <option value="VNMUZXR" ${data.productCode === 'VNMUZXR' ? 'selected' : ''}>VNMUZXR</option>
-                  <option value="S1002" ${data.productCode === 'S1002' ? 'selected' : ''}>S1002 (test)</option>
+                  <option value="VN-YTYCPREC" ${data.productCode === 'VN-YTYCPREC' ? 'selected' : ''}>VN-YTYCPREC (YUNEXPRESS Vietnamm)</option>
+                  <option value="YTYCPREC" ${data.productCode === 'YTYCPREC' ? 'selected' : ''}>YTYCPREC (YUNEXPRESS Vietnamm)</option>
+                  <option value="VNTHZXR" ${data.productCode === 'VNTHZXR' ? 'selected' : ''}>VNTHZXR (YUNEXPRESS Vietnamm)</option>
+                  <option value="VNMUZXR" ${data.productCode === 'VNMUZXR' ? 'selected' : ''}>VNMUZXR (YUNEXPRESS Vietnamm)</option>
+
+                  <option value="ZBZXRPH" ${data.productCode === 'ZBZXRPH' ? 'selected' : ''}>ZBZXRPH (YUNEXPRESS China)</option>
+                  <option value="YTYCPREG" ${data.productCode === 'YTYCPREG' ? 'selected' : ''}>YTYCPREG (YUNEXPRESS China)</option>
+                  <option value="YTYCPREC" ${data.productCode === 'YTYCPREC' ? 'selected' : ''}>YTYCPREC (YUNEXPRESS China)</option>
+                  <option value="FZZXR" ${data.productCode === 'FZZXR' ? 'selected' : ''}>FZZXR (YUNEXPRESS China)</option>
+                  <option value="BKPHR" ${data.productCode === 'BKPHR' ? 'selected' : ''}>BKPHR (YUNEXPRESS China)</option>
+                  <option value="THPHR" ${data.productCode === 'THPHR' ? 'selected' : ''}>THPHR (YUNEXPRESS China)</option>
+                  <option value="THZXR" ${data.productCode === 'THZXR' ? 'selected' : ''}>THZXR (YUNEXPRESS China)</option>
+                  <option value="BKZXR" ${data.productCode === 'BKZXR' ? 'selected' : ''}>BKZXR (YUNEXPRESS China)</option>
+                  <option value="MUZXR" ${data.productCode === 'MUZXR' ? 'selected' : ''}>MUZXR (YUNEXPRESS China)</option>
                 </select>
               </td>
               <td><input type="text" class="yun-input" data-field="extraServices.0.extra_code" value="${data.extraServices?.[0]?.extra_code || ''}"></td>
@@ -790,7 +798,7 @@ async function handleSubmitOrders(ordersData) {
 
         console.log('[THG Extension] Processed orders:', processedOrders);
 
-        const response = await fetch('https://thg-api.nicetech.vn/api/orders/labels/purchase', {
+        const response = await fetch(API_URL + '/api/orders/labels/purchase', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -1116,7 +1124,7 @@ class StatusTracker {
         try {
             console.log('[THG Extension] Fetching statuses for', codes.length, 'orders');
 
-            const response = await fetch('https://thg-api.nicetech.vn/api/orders/status/batch', {
+            const response = await fetch(API_URL + '/api/orders/status/batch', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
