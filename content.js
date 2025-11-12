@@ -1,4 +1,4 @@
-const API_URL='https://express.thgfulfill.com';
+const API_URL='https://ecount.sukienquanhtoi.vn';
 
 class LoadingOverlay {
     constructor() {
@@ -122,14 +122,7 @@ document.addEventListener('__thg_response__', (event) => {
     // Tìm request ID từ URL hoặc element attribute
     const requestId = extractRequestIdFromResponse(url, data);
     
-    if (!requestId) {
-        console.warn('[THG Extension] No request ID found in response');
-        return;
-    }
-    
-    console.log('[THG Extension] Response received for request:', requestId);
-
-    // Resolve promise tương ứng với request ID
+    if (!requestId) return;
     const resolver = pendingResponseResolvers.get(requestId);
     if (resolver) {
         try {
@@ -295,7 +288,7 @@ function parseEcountData(jsonData) {
             // API format fields
             carrier: "YUNEXPRESS",
             productCode: "",
-            customerOrderNumber: "",
+            customerOrderNumber: masterData?.P_DES6 || "",
             platformOrderNumber: "",
             trackingNumber: masterData.ADD_TXT?.ADD_TXT_01 || "",
             referenceNumbers: [],
@@ -303,14 +296,14 @@ function parseEcountData(jsonData) {
             sizeUnit: "CM",
             
             receiver: {
-                firstName: masterData.P_DES2 || "",
+                firstName: masterData?.P_DES2 || "",
                 lastName: "",
                 company: "",
                 countryCode: masterData.ADD_TXT?.ADD_TXT_05 || "",
                 province: masterData.ADD_TXT?.ADD_TXT_09 || "",
                 city: masterData.ADD_TXT?.ADD_TXT_08 || "",
                 addressLines: [masterData.ADD_TXT?.ADD_TXT_06 || ""],
-                postalCode: masterData.P_DES1 || "",
+                postalCode: masterData?.P_DES1 || "",
                 phoneNumber: masterData.ADD_TXT?.ADD_TXT_03 || "",
                 email: masterData.P_DES4 || "",
                 certificateType: "",
@@ -594,6 +587,7 @@ function createOrderSection(orderData, index) {
               <td>
                 <select class="yun-input" data-field="productCode">
                   <option value="">Select</option>
+                  <option value="S1002">S1002 (test)</option>
                   <option value="VN-YTYCPREC" ${data.productCode === 'VN-YTYCPREC' ? 'selected' : ''}>VN-YTYCPREC (YUNEXPRESS Vietnamm)</option>
                   <option value="YTYCPREC" ${data.productCode === 'YTYCPREC' ? 'selected' : ''}>YTYCPREC (YUNEXPRESS Vietnamm)</option>
                   <option value="VNTHZXR" ${data.productCode === 'VNTHZXR' ? 'selected' : ''}>VNTHZXR (YUNEXPRESS Vietnamm)</option>
