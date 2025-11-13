@@ -794,8 +794,8 @@ function createOrderSection(orderData, index) {
           <thead>
             <tr>
               <th style="width: 100px;">Carrier</th>
-              <th style="width: 100px;">Routing Code <img class="apply-field-all" data-key="productCode" width="14" heigth="14" style="float: inline-end;" src="https://assets.streamlinehq.com/image/private/w_240,h_240,ar_1/f_auto/v1/icons/edit/apply-to-all-chzxrxbqmwwp98kcp9i3yk.png/apply-to-all-oyddn8tal7zh6lakoztbr.png?_a=DATAg1AAZAA0"></th>
-              <th style="width: 100px;">Add. Service <img class="apply-field-all" data-key="extraServices.0.extra_code" width="14" heigth="14" style="float: inline-end;" src="https://assets.streamlinehq.com/image/private/w_240,h_240,ar_1/f_auto/v1/icons/edit/apply-to-all-chzxrxbqmwwp98kcp9i3yk.png/apply-to-all-oyddn8tal7zh6lakoztbr.png?_a=DATAg1AAZAA0"></th>
+              <th style="width: 100px;">Routing Code <img class="apply-field-all" data-key="productCode" width="14" heigth="14" style="float: inline-end;" src="https://express.thgfulfill.com/uploads/apply-to-all.webp"></th>
+              <th style="width: 100px;">Add. Service <img class="apply-field-all" data-key="extraServices.0.extra_code" width="14" heigth="14" style="float: inline-end;" src="https://express.thgfulfill.com/uploads/apply-to-all.webp"></th>
               <th style="width: 120px;">Label Type</th>
               <th style="width: 120px;">Weight Unit</th>
               <th style="width: 120px;">Size Unit</th>
