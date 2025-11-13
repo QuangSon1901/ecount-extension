@@ -1,4 +1,4 @@
-const API_URL='https://ecount.sukienquanhtoi.vn';
+const API_URL='https://express.thgfulfill.com';
 
 class LoadingOverlay {
     constructor() {
@@ -140,19 +140,77 @@ document.addEventListener('__thg_response__', (event) => {
 
 // Helper function để extract request ID
 function extractRequestIdFromResponse(url, data) {
-    // Option 1: Từ clicked element (best)
-    const clickedEl = document.querySelector('[data-request-id]');
-    if (clickedEl) {
-        const reqId = clickedEl.getAttribute('data-request-id');
-        clickedEl.removeAttribute('data-request-id'); // Clean up
-        return reqId;
+    // ✅ Option 1: Tìm requestId từ URL response
+    // ECount thường trả URL có dạng: ...?sid=xxx hoặc ...&sid=xxx
+    const sidMatch = url.match(/[?&]sid[_=]([^&]+)/i);
+    
+    if (sidMatch) {
+        const sid = sidMatch[1];
+        
+        // Tìm requestId match với selector chứa sid này
+        for (const [reqId, resolver] of pendingResponseResolvers.entries()) {
+            if (resolver.selector && resolver.selector.includes(sid)) {
+                console.log(`[THG Extension] ✅ Matched by SID: ${sid} → ${reqId}`);
+                return reqId;
+            }
+        }
     }
     
-    // Option 2: Từ URL pattern
-    const match = url.match(/sid[_=]([^&]+)/i);
-    if (match) return match[1];
+    // ✅ Option 2: Từ clicked element (fallback)
+    // CHỈ lấy element CÓ attribute data-request-id
+    const clickedElements = document.querySelectorAll('[data-request-id]');
     
-    // Option 3: Từ timestamp (fallback)
+    if (clickedElements.length === 1) {
+        // Chỉ có 1 element đang chờ → an toàn
+        const reqId = clickedElements[0].getAttribute('data-request-id');
+        clickedElements[0].removeAttribute('data-request-id');
+        console.log(`[THG Extension] ✅ Matched by single element: ${reqId}`);
+        return reqId;
+    } else if (clickedElements.length > 1) {
+        // ⚠️ Nhiều elements chờ → match bằng timestamp (FIFO)
+        console.warn(`[THG Extension] ⚠️ Multiple pending elements: ${clickedElements.length}`);
+        
+        // Lấy request cũ nhất (FIFO)
+        let oldestReqId = null;
+        let oldestTimestamp = Infinity;
+        
+        for (const [reqId, resolver] of pendingResponseResolvers.entries()) {
+            if (resolver.timestamp < oldestTimestamp) {
+                oldestTimestamp = resolver.timestamp;
+                oldestReqId = reqId;
+            }
+        }
+        
+        if (oldestReqId) {
+            // Tìm và cleanup element tương ứng
+            for (const el of clickedElements) {
+                if (el.getAttribute('data-request-id') === oldestReqId) {
+                    el.removeAttribute('data-request-id');
+                    break;
+                }
+            }
+            console.log(`[THG Extension] ✅ Matched by FIFO: ${oldestReqId}`);
+            return oldestReqId;
+        }
+    }
+    
+    // ✅ Option 3: Fallback - lấy oldest pending request
+    if (pendingResponseResolvers.size > 0) {
+        let oldestReqId = null;
+        let oldestTimestamp = Infinity;
+        
+        for (const [reqId, resolver] of pendingResponseResolvers.entries()) {
+            if (resolver.timestamp < oldestTimestamp) {
+                oldestTimestamp = resolver.timestamp;
+                oldestReqId = reqId;
+            }
+        }
+        
+        console.log(`[THG Extension] ⚠️ Fallback to oldest pending: ${oldestReqId}`);
+        return oldestReqId;
+    }
+    
+    console.error('[THG Extension] ❌ Cannot extract requestId from:', url);
     return null;
 }
 
@@ -174,15 +232,14 @@ function getXExtendResponse(selector, requestId) {
             pendingResponseResolvers.delete(requestId);
         };
 
-        // Add to pending Map với requestId làm key
+        // ✅ Lưu selector vào resolver để so sánh sau
         pendingResponseResolvers.set(requestId, {
-            selector,
+            selector,  // ← Lưu selector
             timestamp: Date.now(),
             resolve: (data) => {
                 try {
                     let decodedData = data;
 
-                    // Try decode base64
                     try {
                         decodedData = atob(data);
                         console.log('[THG Extension] Base64 decoded for', requestId);
@@ -217,7 +274,7 @@ function getXExtendResponse(selector, requestId) {
 
             console.log(`[THG Extension] [${requestId}] Clicking element:`, selector);
             
-            // Gắn requestId vào element để tracking
+            // ✅ Gắn requestId vào element
             el.setAttribute('data-request-id', requestId);
             
             el.dispatchEvent(new MouseEvent('click', {
@@ -225,7 +282,7 @@ function getXExtendResponse(selector, requestId) {
                 cancelable: true,
                 view: window
             }));
-        }, 100); // Giảm delay xuống 100ms
+        }, 100);
 
         // Timeout 30s
         timeoutId = setTimeout(() => {
@@ -553,7 +610,7 @@ function createOrderSection(orderData, index) {
 
     section.innerHTML = `
     <div class="yun-order-header">
-      <h4>#${index + 1} - ${data.erpOrderCode || 'N/A'}</h4>
+      <h4>#${index + 1} - ${data.erpOrderCode || 'N/A'} - ${data.customerOrderNumber}</h4>
       <button class="yun-order-toggle" onclick="this.closest('.yun-order-section').querySelector('.yun-order-content').classList.toggle('active'); this.textContent = this.textContent === '▼' ? '▲' : '▼';">▼</button>
     </div>
     
@@ -587,7 +644,6 @@ function createOrderSection(orderData, index) {
               <td>
                 <select class="yun-input" data-field="productCode">
                   <option value="">Select</option>
-                  <option value="S1002">S1002 (test)</option>
                   <option value="VN-YTYCPREC" ${data.productCode === 'VN-YTYCPREC' ? 'selected' : ''}>VN-YTYCPREC (YUNEXPRESS Vietnamm)</option>
                   <option value="YTYCPREC" ${data.productCode === 'YTYCPREC' ? 'selected' : ''}>YTYCPREC (YUNEXPRESS Vietnamm)</option>
                   <option value="VNTHZXR" ${data.productCode === 'VNTHZXR' ? 'selected' : ''}>VNTHZXR (YUNEXPRESS Vietnamm)</option>
@@ -839,7 +895,7 @@ async function handleSubmitOrders(ordersData) {
 const BATCH_CONFIG = {
     SIZE: 5,           // Số request mỗi batch
     DELAY: 2000,       // Delay giữa các batch (ms)
-    CLICK_STAGGER: 50  // Delay giữa các click trong batch (ms)
+    CLICK_STAGGER: 200  // Delay giữa các click trong batch (ms)
 };
 
 function injectButton(titleElement) {
@@ -849,7 +905,7 @@ function injectButton(titleElement) {
 
     const button = document.createElement("button");
     button.className = "buy-label-ecount-btn";
-    button.innerText = "Mua label";
+    button.innerText = "🏷️ Mua label";
 
     button.onclick = async () => {
         const links = document.querySelectorAll('tbody tr[data-row-sid].active a[id*="_inv_s$data_dt_no_cell_item_sid_"]');
