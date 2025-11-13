@@ -115,26 +115,51 @@ document.addEventListener('__thg_interceptor_ready__', () => {
     console.log('[THG Extension] ✅ Interceptor is ready');
 });
 
-// Listen for responses via DOM events
 document.addEventListener('__thg_response__', (event) => {
     const { url, method, data } = event.detail;
     
-    // Tìm request ID từ URL hoặc element attribute
-    const requestId = extractRequestIdFromResponse(url, data);
-    
-    if (!requestId) return;
-    const resolver = pendingResponseResolvers.get(requestId);
-    if (resolver) {
+    try {
+        // Parse response để lấy erpOrderCode
+        let parsedData = data;
+        
+        // Decode base64 nếu cần
         try {
-            resolver.resolve(data);
-            pendingResponseResolvers.delete(requestId);
-            console.log('[THG Extension] ✅ Resolved request:', requestId);
+            parsedData = atob(data);
         } catch (e) {
-            console.error('[THG Extension] Error resolving:', e);
-            resolver.reject(e);
+            // Not base64
         }
-    } else {
-        console.warn('[THG Extension] No pending resolver for:', requestId);
+
+        // Parse JSON để lấy erpOrderCode
+        const orderInfo = parseEcountData(parsedData);
+        
+        if (!orderInfo || !orderInfo.erpOrderCode) {
+            console.warn('[THG Extension] Cannot extract erpOrderCode from response');
+            return;
+        }
+
+        const erpOrderCode = orderInfo.erpOrderCode;
+        console.log('[THG Extension] Response received for Code-THG:', erpOrderCode);
+
+        // ✅ Tìm resolver theo erpOrderCode (Code-THG)
+        const resolver = pendingResponseResolvers.get(erpOrderCode);
+        
+        if (resolver) {
+            try {
+                console.log('[THG Extension] ✅ Matched resolver for:', erpOrderCode);
+                resolver.resolve(data);
+                pendingResponseResolvers.delete(erpOrderCode);
+            } catch (e) {
+                console.error('[THG Extension] Error resolving:', e);
+                resolver.reject(e);
+                pendingResponseResolvers.delete(erpOrderCode);
+            }
+        } else {
+            console.warn('[THG Extension] ⚠️ No pending resolver for Code-THG:', erpOrderCode);
+            console.warn('[THG Extension] Pending resolvers:', Array.from(pendingResponseResolvers.keys()));
+        }
+        
+    } catch (error) {
+        console.error('[THG Extension] Error handling response:', error);
     }
 });
 
@@ -218,10 +243,15 @@ function extractRequestIdFromResponse(url, data) {
 // PART 3: GET RESPONSE FUNCTION (UPDATED)
 // ============================================
 
-function getXExtendResponse(selector, requestId) {
+function getXExtendResponse(selector, codeThg) {
     return new Promise((resolve, reject) => {
         if (!interceptorReady) {
             reject(new Error('Interceptor chưa sẵn sàng'));
+            return;
+        }
+
+        if (!codeThg) {
+            reject(new Error('Code-THG không hợp lệ'));
             return;
         }
 
@@ -229,20 +259,29 @@ function getXExtendResponse(selector, requestId) {
 
         const cleanup = () => {
             clearTimeout(timeoutId);
-            pendingResponseResolvers.delete(requestId);
+            pendingResponseResolvers.delete(codeThg);
         };
 
-        // ✅ Lưu selector vào resolver để so sánh sau
-        pendingResponseResolvers.set(requestId, {
-            selector,  // ← Lưu selector
+        // ✅ Check xem Code-THG này đã có resolver chưa (tránh duplicate)
+        if (pendingResponseResolvers.has(codeThg)) {
+            console.warn(`[THG Extension] ⚠️ Code-THG "${codeThg}" already has a pending request, skipping...`);
+            reject(new Error(`Đơn hàng ${codeThg} đang được xử lý`));
+            return;
+        }
+
+        // Add to pending Map với Code-THG làm key
+        pendingResponseResolvers.set(codeThg, {
+            selector,
+            codeThg,
             timestamp: Date.now(),
             resolve: (data) => {
                 try {
                     let decodedData = data;
 
+                    // Try decode base64
                     try {
                         decodedData = atob(data);
-                        console.log('[THG Extension] Base64 decoded for', requestId);
+                        console.log('[THG Extension] Base64 decoded for', codeThg);
                     } catch (e) {
                         // Not base64, use as is
                     }
@@ -260,22 +299,19 @@ function getXExtendResponse(selector, requestId) {
             }
         });
 
-        console.log(`[THG Extension] [${requestId}] Added to pending Map, total:`, pendingResponseResolvers.size);
+        console.log(`[THG Extension] [${codeThg}] Added to pending Map, total:`, pendingResponseResolvers.size);
 
         // Click element after small delay
         setTimeout(() => {
             const el = document.querySelector('a#' + CSS.escape(selector));
             if (!el) {
-                console.error(`[THG Extension] [${requestId}] Element not found:`, selector);
+                console.error(`[THG Extension] [${codeThg}] Element not found:`, selector);
                 cleanup();
                 reject(new Error('Không tìm thấy element: ' + selector));
                 return;
             }
 
-            console.log(`[THG Extension] [${requestId}] Clicking element:`, selector);
-            
-            // ✅ Gắn requestId vào element
-            el.setAttribute('data-request-id', requestId);
+            console.log(`[THG Extension] [${codeThg}] Clicking element:`, selector);
             
             el.dispatchEvent(new MouseEvent('click', {
                 bubbles: true,
@@ -286,10 +322,10 @@ function getXExtendResponse(selector, requestId) {
 
         // Timeout 30s
         timeoutId = setTimeout(() => {
-            console.error(`[THG Extension] [${requestId}] ⏱️ Timeout for selector:`, selector);
+            console.error(`[THG Extension] [${codeThg}] ⏱️ Timeout for selector:`, selector);
             cleanup();
-            reject(new Error(`Timeout: Không nhận được response sau 30 giây (${selector})`));
-        }, 30000);
+            reject(new Error(`Timeout: Không nhận được response sau 30 giây (${codeThg})`));
+        }, 10000);
     });
 }
 
@@ -492,19 +528,37 @@ async function getOrderInfoFromAPI(thgCode) {
 // PART 6: GET ORDER DATA (UPDATED WITH REQUEST ID)
 // ============================================
 
-async function getOrderData(selector, requestId) {
+async function getOrderData(selector, codeThg) {
     try {
-        console.log('[THG Extension] Getting data from ECOUNT, requestId:', requestId);
+        console.log('[THG Extension] Getting data from ECOUNT, Code-THG:', codeThg);
 
-        const jsonData = await getXExtendResponse(selector, requestId);
+        const jsonData = await getXExtendResponse(selector, codeThg);
         const parsedData = parseEcountData(jsonData);
 
         if (parsedData) {
+            // ✅ Verify: Kiểm tra erpOrderCode có khớp với Code-THG không
+            if (parsedData.erpOrderCode !== codeThg) {
+                console.error('[THG Extension] ❌ MISMATCH!', {
+                    expected: codeThg,
+                    received: parsedData.erpOrderCode,
+                    selector
+                });
+                
+                return {
+                    success: false,
+                    error: `Order code mismatch: expected ${codeThg}, got ${parsedData.erpOrderCode}`,
+                    selector: selector,
+                    codeThg: codeThg
+                };
+            }
+
+            console.log('[THG Extension] ✅ Verified:', codeThg);
+
             return {
                 success: true,
                 data: parsedData,
                 source: 'ecount',
-                requestId: requestId,
+                codeThg: codeThg,
                 selector: selector
             };
         }
@@ -513,7 +567,7 @@ async function getOrderData(selector, requestId) {
             success: false,
             error: 'Cannot parse ECOUNT data',
             selector: selector,
-            requestId: requestId
+            codeThg: codeThg
         };
 
     } catch (error) {
@@ -522,10 +576,68 @@ async function getOrderData(selector, requestId) {
             success: false,
             error: error.message,
             selector: selector,
-            requestId: requestId
+            codeThg: codeThg
         };
     }
 }
+
+function findCodeThgColumnIndex() {
+    const thead = document.querySelector('.wrapper-frame-body thead');
+    if (!thead) return -1;
+
+    const headers = thead.querySelectorAll('th');
+    for (let i = 0; i < headers.length; i++) {
+        const text = headers[i].innerText.trim();
+        if (text === 'Code-THG') {
+            return i;
+        }
+    }
+    return -1;
+}
+
+function getCodeThgFromSelector(selector) {
+    try {
+        // selector có dạng: "row_1_sid_456" hoặc ID của link
+        const link = document.querySelector('a#' + CSS.escape(selector));
+        if (!link) {
+            console.error('[THG Extension] Cannot find link:', selector);
+            return null;
+        }
+
+        // Tìm row chứa link này
+        const row = link.closest('tr[data-row-sid]');
+        if (!row) {
+            console.error('[THG Extension] Cannot find row for:', selector);
+            return null;
+        }
+
+        // Tìm cột Code-THG
+        const codeThgIndex = findCodeThgColumnIndex();
+        if (codeThgIndex === -1) {
+            console.error('[THG Extension] Cannot find Code-THG column');
+            return null;
+        }
+
+        // Lấy cell tương ứng
+        const cells = row.querySelectorAll('td');
+        if (cells.length <= codeThgIndex) {
+            console.error('[THG Extension] Row has not enough cells');
+            return null;
+        }
+
+        const codeCell = cells[codeThgIndex];
+        const codeText = codeCell.querySelector('span:not([data-status-code])').innerText.trim();
+
+        console.log(`[THG Extension] [${selector}] Found Code-THG:`, codeText);
+        return codeText;
+
+    } catch (error) {
+        console.error('[THG Extension] Error getting Code-THG:', error);
+        return null;
+    }
+}
+
+
 
 // ============================================
 // PART 7: MODAL CREATION
@@ -973,43 +1085,78 @@ async function processBatches(selectors, totalOrders, config) {
     const errors = [];
     let completedCount = 0;
 
-    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+    // ✅ Lấy Code-THG cho tất cả selectors trước
+    const selectorWithCodes = [];
+    
+    for (const selector of selectors) {
+        const codeThg = getCodeThgFromSelector(selector);
+        if (codeThg) {
+            selectorWithCodes.push({ selector, codeThg });
+        } else {
+            console.warn('[THG Extension] ⚠️ Cannot get Code-THG for:', selector);
+            errors.push({
+                success: false,
+                error: 'Cannot get Code-THG',
+                selector
+            });
+        }
+    }
+
+    console.log('[THG Extension] Found', selectorWithCodes.length, 'valid orders with Code-THG');
+
+    // ✅ Deduplicate dựa trên Code-THG
+    const uniqueItems = [];
+    const seenCodes = new Set();
+    
+    for (const item of selectorWithCodes) {
+        if (!seenCodes.has(item.codeThg)) {
+            seenCodes.add(item.codeThg);
+            uniqueItems.push(item);
+        } else {
+            console.warn('[THG Extension] ⚠️ Duplicate Code-THG detected, skipping:', item.codeThg);
+        }
+    }
+
+    const duplicateCount = selectorWithCodes.length - uniqueItems.length;
+    if (duplicateCount > 0) {
+        console.warn(`[THG Extension] Removed ${duplicateCount} duplicate orders`);
+    }
+
+    // Process batches
+    const totalValidBatches = Math.ceil(uniqueItems.length / SIZE);
+    
+    for (let batchIndex = 0; batchIndex < totalValidBatches; batchIndex++) {
         const start = batchIndex * SIZE;
-        const end = Math.min(start + SIZE, selectors.length);
-        const batchSelectors = selectors.slice(start, end);
+        const end = Math.min(start + SIZE, uniqueItems.length);
+        const batchItems = uniqueItems.slice(start, end);
         const batchNum = batchIndex + 1;
         
-        // Update loading overlay for current batch
-        loadingOverlay.updateText(`Đang xử lý Batch ${batchNum}/${totalBatches}`);
-        loadingOverlay.updateSubtext(`Đơn hàng ${start + 1}-${end} / ${totalOrders}`);
+        loadingOverlay.updateText(`Đang xử lý Batch ${batchNum}/${totalValidBatches}`);
+        loadingOverlay.updateSubtext(`Đơn hàng ${start + 1}-${end} / ${uniqueItems.length}`);
         
-        console.log(`[THG Extension] 🚀 Batch ${batchNum}/${totalBatches}: Processing ${batchSelectors.length} orders`);
+        console.log(`[THG Extension] 🚀 Batch ${batchNum}/${totalValidBatches}: Processing ${batchItems.length} orders`);
 
         // Create batch promises
-        const batchPromises = batchSelectors.map((selector, indexInBatch) => {
-            const globalIndex = start + indexInBatch;
-            const requestId = `req_${Date.now()}_${globalIndex}_${Math.random().toString(36).substr(2, 9)}`;
-            
+        const batchPromises = batchItems.map((item, indexInBatch) => {
             return new Promise(resolve => {
                 setTimeout(() => {
                     resolve(
-                        getOrderData(selector, requestId)
+                        getOrderData(item.selector, item.codeThg)
                             .then(result => {
-                                // Update progress after each successful fetch
                                 if (result && result.success) {
                                     completedCount++;
-                                    loadingOverlay.updateProgress(completedCount, totalOrders);
+                                    loadingOverlay.updateProgress(completedCount, uniqueItems.length);
                                 }
                                 return result;
                             })
                             .catch(err => {
                                 completedCount++;
-                                loadingOverlay.updateProgress(completedCount, totalOrders);
+                                loadingOverlay.updateProgress(completedCount, uniqueItems.length);
                                 return {
                                     success: false,
                                     error: err.message,
-                                    selector,
-                                    requestId
+                                    selector: item.selector,
+                                    codeThg: item.codeThg
                                 };
                             })
                     );
@@ -1027,11 +1174,10 @@ async function processBatches(selectors, totalOrders, config) {
         orderInfos.push(...successResults);
         errors.push(...failedResults);
 
-
-        console.log(`[THG Extension] ✅ Batch ${batchNum}: ${successResults.length}/${batchSelectors.length} success, ${failedResults.length} failed`);
+        console.log(`[THG Extension] ✅ Batch ${batchNum}: ${successResults.length}/${batchItems.length} success, ${failedResults.length} failed`);
         
         // Delay before next batch
-        if (batchIndex < totalBatches - 1) {
+        if (batchIndex < totalValidBatches - 1) {
             loadingOverlay.updateSubtext(`⏸️ Chờ ${DELAY / 1000}s trước batch tiếp theo...`);
             console.log(`[THG Extension] ⏸️  Waiting ${DELAY}ms...`);
             await new Promise(resolve => setTimeout(resolve, DELAY));
@@ -1040,16 +1186,15 @@ async function processBatches(selectors, totalOrders, config) {
 
     // Final update
     loadingOverlay.updateText('✅ Hoàn thành!');
-    loadingOverlay.updateSubtext(`Đã tải ${orderInfos.length}/${totalOrders} đơn hàng thành công`);
-    loadingOverlay.updateProgress(totalOrders, totalOrders);
+    loadingOverlay.updateSubtext(`Đã tải ${orderInfos.length}/${uniqueItems.length} đơn hàng thành công`);
+    loadingOverlay.updateProgress(uniqueItems.length, uniqueItems.length);
 
     // Log summary
     if (errors.length > 0) {
         console.warn('[THG Extension] ⚠️ Failed requests:', errors);
-        console.warn(`[THG Extension] Success rate: ${orderInfos.length}/${selectors.length} (${(orderInfos.length/selectors.length*100).toFixed(1)}%)`);
+        console.warn(`[THG Extension] Success rate: ${orderInfos.length}/${uniqueItems.length} (${(orderInfos.length/uniqueItems.length*100).toFixed(1)}%)`);
     }
 
-    // Wait a bit before hiding to show completion
     await new Promise(resolve => setTimeout(resolve, 800));
 
     return orderInfos;
