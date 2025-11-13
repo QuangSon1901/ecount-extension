@@ -364,7 +364,6 @@ function parseEcountData(jsonData) {
 
         // Kiểm tra structure
         if (!data || !data.InitDatas || !data.InitDatas.ViewData) {
-            console.error('Invalid data structure:', data);
             return null;
         }
 
@@ -693,6 +692,8 @@ function createOrderModal(ordersData) {
     const cancelBtn = footer.querySelector('.yun-btn-cancel');
     const submitBtn = footer.querySelector('.yun-btn-submit');
 
+    setupApplyToAllButtons(modal);
+
     closeBtn.onclick = () => overlay.remove();
     cancelBtn.onclick = () => overlay.remove();
     // overlay.onclick = (e) => {
@@ -700,6 +701,65 @@ function createOrderModal(ordersData) {
     // };
 
     submitBtn.onclick = () => handleSubmitOrders(ordersData);
+}
+
+function setupApplyToAllButtons(modal) {
+    const applyButtons = modal.querySelectorAll('.apply-field-all');
+    
+    applyButtons.forEach(button => {
+        button.style.cursor = 'pointer';
+        button.title = 'Áp dụng cho tất cả đơn hàng';
+        
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const field = this.getAttribute('data-key');
+            if (!field) {
+                return;
+            }
+            
+            // Tìm input trong cùng section với button này
+            const currentSection = this.closest('.yun-order-section');
+            if (!currentSection) {
+                return;
+            }
+            
+            const currentInput = currentSection.querySelector(`[data-field="${field}"]`);
+            if (!currentInput) {
+                return;
+            }
+            
+            const value = currentInput.value;
+            
+            // Confirm với user
+            const confirmMsg = `Áp dụng giá trị "${value}" cho trường "${field}" cho tất cả ${document.querySelectorAll('.yun-order-section').length} đơn hàng?`;
+            if (!confirm(confirmMsg)) {
+                return;
+            }
+            
+            // Apply cho tất cả sections
+            const allSections = document.querySelectorAll('.yun-order-section');
+            let updatedCount = 0;
+            
+            allSections.forEach(section => {
+                const targetInput = section.querySelector(`[data-field="${field}"]`);
+                if (targetInput && targetInput !== currentInput) {
+                    targetInput.value = value;
+                    
+                    targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    updatedCount++;
+                }
+            });
+            
+            this.style.filter = 'brightness(0.8)';
+            setTimeout(() => {
+                this.style.filter = '';
+            }, 200);
+            
+            alert(`✅ Đã áp dụng cho ${updatedCount} đơn hàng`, 'success');
+        });
+    });
 }
 
 // ============================================
@@ -734,8 +794,8 @@ function createOrderSection(orderData, index) {
           <thead>
             <tr>
               <th style="width: 100px;">Carrier</th>
-              <th style="width: 100px;">Routing Code</th>
-              <th style="width: 100px;">Add. Service</th>
+              <th style="width: 100px;">Routing Code <img class="apply-field-all" data-key="productCode" width="14" heigth="14" style="float: inline-end;" src="https://assets.streamlinehq.com/image/private/w_240,h_240,ar_1/f_auto/v1/icons/edit/apply-to-all-chzxrxbqmwwp98kcp9i3yk.png/apply-to-all-oyddn8tal7zh6lakoztbr.png?_a=DATAg1AAZAA0"></th>
+              <th style="width: 100px;">Add. Service <img class="apply-field-all" data-key="extraServices.0.extra_code" width="14" heigth="14" style="float: inline-end;" src="https://assets.streamlinehq.com/image/private/w_240,h_240,ar_1/f_auto/v1/icons/edit/apply-to-all-chzxrxbqmwwp98kcp9i3yk.png/apply-to-all-oyddn8tal7zh6lakoztbr.png?_a=DATAg1AAZAA0"></th>
               <th style="width: 120px;">Label Type</th>
               <th style="width: 120px;">Weight Unit</th>
               <th style="width: 120px;">Size Unit</th>
