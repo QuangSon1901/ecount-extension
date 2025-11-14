@@ -427,9 +427,9 @@ function parseEcountData(jsonData) {
         if (Array.isArray(detailsData)) {
             detailsData.forEach(item => {
                 const qty = parseFloat(item.QTY) || 0;
-                const unitPrice = parseFloat(item.ADD_TXT?.ADD_TXT_06) || 0;
-                const sellingPrice = parseFloat(item.ADD_TXT?.ADD_TXT_07) || 0;
-                const unitWeight = parseFloat(item.ADD_TXT?.ADD_TXT_02) || 0;
+                const unitPrice = parseFloat(item.ADD_NUM?.ADD_NUM_05) || 0;
+                const sellingPrice = parseFloat(item.ADD_NUM?.ADD_NUM_02) || 0;
+                const unitWeight = parseFloat(item.ADD_NUM?.ADD_NUM_03) || 0;
 
                 const dimensions = item.ADD_TXT?.ADD_TXT_04 || '';
                 let length = 0, width = 0, height = 0;
@@ -448,7 +448,7 @@ function parseEcountData(jsonData) {
                     length: length,
                     width: width,
                     height: height,
-                    weight: parseFloat(item.ADD_TXT?.ADD_TXT_05) || 0
+                    weight: parseFloat(item.ADD_NUM?.ADD_NUM_04) || 0
                 });
 
                 result.declarationInfo.push({
@@ -1420,7 +1420,9 @@ class StatusTracker {
             'waiting_tracking_update': '#ff9800',
             'updating_status': '#2196f3',
             'waiting_status_update': '#ff9800',
+            'created': '#2196f3',
             'in_transit': '#2196f3',
+            'out_for_delivery': '#2196f3',
             'completed': '#4caf50',
             'failed': '#f44336',
             'unknown': '#999'
