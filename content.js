@@ -408,12 +408,16 @@ function parseEcountData(jsonData) {
             
             customsNumber: {
                 tax_number: "",
-                ioss_code: "",
+                ioss_code: masterData.ADD_LTXT?.ADD_LTXT_03 || "",
                 vat_code: "",
-                eori_number: ""
+                eori_number: masterData.ADD_TXT?.ADD_TXT_10 || "",
             },
             
-            extraServices: [],
+            extraServices: [
+                {
+                    extra_code: masterData.ADD_TXT?.ADD_TXT_07 || ""
+                }
+            ],
             
             sensitiveType: "",
             labelType: "PDF",
@@ -424,6 +428,23 @@ function parseEcountData(jsonData) {
         };
 
         // Xử lý chi tiết sản phẩm
+        let packageWeight = 0;
+        let packageLength = 0;
+        let packageWidth = 0;
+        let packageHeight = 0;
+
+        const dimensions = masterData?.P_DES3 || '';
+        if (dimensions) {
+            const parts = dimensions.split(/x|×/i).map(p => {
+                const match = p.match(/[\d.]+/);
+                return match ? parseFloat(match[0]) : 0;
+            });
+
+            packageLength = parts[0] || 0;
+            packageWidth  = parts[1] || 0;
+            packageHeight = parts[2] || 0;
+        }
+
         if (Array.isArray(detailsData)) {
             detailsData.forEach(item => {
                 const qty = parseFloat(item.QTY) || 0;
@@ -431,25 +452,7 @@ function parseEcountData(jsonData) {
                 const sellingPrice = parseFloat(item.ADD_NUM?.ADD_NUM_02) || 0;
                 const unitWeight = parseFloat(item.ADD_NUM?.ADD_NUM_03) || 0;
 
-                const dimensions = item.ADD_TXT?.ADD_TXT_04 || '';
-                let length = 0, width = 0, height = 0;
-                if (dimensions) {
-                    const parts = dimensions.split(/x|×/i).map(p => {
-                        const match = p.match(/[\d.]+/);
-                        return match ? parseFloat(match[0]) : 0;
-                    });
-
-                    length = parts[0] || 0;
-                    width  = parts[1] || 0;
-                    height = parts[2] || 0;
-                }
-
-                result.packages.push({
-                    length: length,
-                    width: width,
-                    height: height,
-                    weight: parseFloat(item.ADD_NUM?.ADD_NUM_04) || 0
-                });
+                packageWeight += parseFloat(item.ADD_NUM?.ADD_NUM_04) || 0;
 
                 result.declarationInfo.push({
                     sku_code: "",
@@ -472,15 +475,12 @@ function parseEcountData(jsonData) {
             });
         }
 
-        // Nếu không có packages, thêm default
-        if (result.packages.length === 0) {
-            result.packages.push({
-                length: 0,
-                width: 0,
-                height: 0,
-                weight: 0
-            });
-        }
+        result.packages.push({
+            length: packageLength,
+            width: packageWidth,
+            height: packageHeight,
+            weight: packageWeight
+        });
 
         console.log('[THG Extension] Parsed data:', result);
         return result;
@@ -888,10 +888,35 @@ function createOrderSection(orderData, index) {
       </div>
 
       <div class="yun-divider">
-        <span class="yun-divider-label">Items (${maxItems})</span>
+        <span class="yun-divider-label">Package Info</span>
       </div>
 
       <!-- Items table -->
+      <div class="yun-table-wrapper">
+        <table class="yun-compact-table">
+          <thead>
+            <tr>
+              <th style="width: 60px;">Package Length (cm)</th>
+              <th style="width: 60px;">Package Width (cm)</th>
+              <th style="width: 60px;">Package Height (cm)</th>
+              <th style="width: 70px;">Package Weight (kg)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+                <td><input type="number" class="yun-input" data-field="packages.0.length" value="${data.packages?.[0]?.length || ''}"></td>
+                <td><input type="number" class="yun-input" data-field="packages.0.width" value="${data.packages?.[0]?.width || ''}"></td>
+                <td><input type="number" class="yun-input" data-field="packages.0.height" value="${data.packages?.[0]?.height || ''}"></td>
+                <td><input type="number" class="yun-input" data-field="packages.0.weight" value="${data.packages?.[0]?.weight || ''}"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="yun-divider">
+        <span class="yun-divider-label">Items (${maxItems})</span>
+      </div>
+
       <div class="yun-table-wrapper">
         <table class="yun-compact-table">
           <thead>
@@ -900,21 +925,16 @@ function createOrderSection(orderData, index) {
               <th style="width: 80px;">SKU</th>
               <th style="width: 150px;">Name (EN)</th>
               <th style="width: 150px;">Name (Local)</th>
-              <th style="width: 50px;">Qty</th>
-              <th style="width: 70px;">Price</th>
-              <th style="width: 70px;">Sell Price</th>
-              <th style="width: 60px;">Weight</th>
+              <th style="width: 50px;">Quantity</th>
+              <th style="width: 60px;">Unit Weight</th>
+              <th style="width: 70px;">Unit Price</th>
+              <th style="width: 70px;">Selling Price</th>
               <th style="width: 80px;">HS Code</th>
               <th style="width: 50px;">Curr</th>
-              <th style="width: 60px;">L (cm)</th>
-              <th style="width: 60px;">W (cm)</th>
-              <th style="width: 60px;">H (cm)</th>
-              <th style="width: 70px;">Wt (g)</th>
             </tr>
           </thead>
           <tbody>
             ${Array.from({ length: maxItems }).map((_, i) => {
-                const pkg = data.packages?.[i] || {};
                 const declaration = data.declarationInfo?.[i] || {};
                 return `
                   <tr>
@@ -923,15 +943,11 @@ function createOrderSection(orderData, index) {
                     <td><input type="text" class="yun-input" data-field="declarationInfo.${i}.name_en" value="${declaration.name_en || ''}"></td>
                     <td><input type="text" class="yun-input" data-field="declarationInfo.${i}.name_local" value="${declaration.name_local || ''}"></td>
                     <td><input type="number" class="yun-input" data-field="declarationInfo.${i}.quantity" value="${declaration.quantity || ''}"></td>
+                    <td><input type="number" class="yun-input" data-field="declarationInfo.${i}.unit_weight" value="${declaration.unit_weight || ''}"></td>
                     <td><input type="number" step="0.01" class="yun-input" data-field="declarationInfo.${i}.unit_price" value="${declaration.unit_price || ''}"></td>
                     <td><input type="number" step="0.01" class="yun-input" data-field="declarationInfo.${i}.selling_price" value="${declaration.selling_price || ''}"></td>
-                    <td><input type="number" class="yun-input" data-field="declarationInfo.${i}.unit_weight" value="${declaration.unit_weight || ''}"></td>
                     <td><input type="text" class="yun-input" data-field="declarationInfo.${i}.hs_code" value="${declaration.hs_code || ''}"></td>
                     <td><input type="text" class="yun-input" data-field="declarationInfo.${i}.currency" value="${declaration.currency || 'USD'}"></td>
-                    <td><input type="number" class="yun-input" data-field="packages.${i}.length" value="${pkg.length || ''}"></td>
-                    <td><input type="number" class="yun-input" data-field="packages.${i}.width" value="${pkg.width || ''}"></td>
-                    <td><input type="number" class="yun-input" data-field="packages.${i}.height" value="${pkg.height || ''}"></td>
-                    <td><input type="number" class="yun-input" data-field="packages.${i}.weight" value="${pkg.weight || ''}"></td>
                   </tr>
                 `;
             }).join('')}
