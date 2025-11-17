@@ -433,26 +433,31 @@ function parseEcountData(jsonData) {
         let packageWidth = 0;
         let packageHeight = 0;
 
-        const dimensions = masterData?.P_DES3 || '';
-        if (dimensions) {
-            const parts = dimensions.split(/x|×/i).map(p => {
-                const match = p.match(/[\d.]+/);
-                return match ? parseFloat(match[0]) : 0;
-            });
+        // const dimensions = masterData?.P_DES3 || '';
+        // if (dimensions) {
+        //     const parts = dimensions.split(/x|×/i).map(p => {
+        //         const match = p.match(/[\d.]+/);
+        //         return match ? parseFloat(match[0]) : 0;
+        //     });
 
-            packageLength = parts[0] || 0;
-            packageWidth  = parts[1] || 0;
-            packageHeight = parts[2] || 0;
-        }
+        //     packageLength = parts[0] || 0;
+        //     packageWidth  = parts[1] || 0;
+        //     packageHeight = parts[2] || 0;
+        // }
 
         if (Array.isArray(detailsData)) {
-            detailsData.forEach(item => {
+            detailsData.forEach((item, index) => {
                 const qty = parseFloat(item.QTY) || 0;
                 const unitPrice = parseFloat(item.ADD_NUM?.ADD_NUM_05) || 0;
                 const sellingPrice = parseFloat(item.ADD_NUM?.ADD_NUM_02) || 0;
                 const unitWeight = parseFloat(item.ADD_NUM?.ADD_NUM_03) || 0;
 
                 packageWeight += parseFloat(item.ADD_NUM?.ADD_NUM_04) || 0;
+                if (index==0) {
+                    packageLength = parseFloat(item.ADD_TXT?.ADD_TXT_02) || '';
+                    packageWidth  = parseFloat(item.ADD_TXT?.ADD_TXT_03) || '';
+                    packageHeight = parseFloat(item.ADD_TXT?.ADD_TXT_04) || '';
+                }
 
                 result.declarationInfo.push({
                     sku_code: "",
@@ -760,6 +765,24 @@ function setupApplyToAllButtons(modal) {
             alert(`✅ Đã áp dụng cho ${updatedCount} đơn hàng`, 'success');
         });
     });
+
+    const inputs = document.querySelectorAll('.yun-input[data-number="1"]');
+    inputs.forEach(input => {
+        input.value = input.value.replace(',', '.');
+        input.addEventListener('input', (e) => {
+            let val = e.target.value;
+
+            val = val.replace(',', '.');           // đổi dấu phẩy thành dấu chấm
+            val = val.replace(/[^0-9.]/g, '');     // loại bỏ ký tự không phải số/dấu chấm
+
+            const parts = val.split('.');
+            if(parts.length > 2){
+                val = parts[0] + '.' + parts.slice(1).join('');
+            }
+
+            e.target.value = val;
+        });
+    })
 }
 
 // ============================================
@@ -904,10 +927,10 @@ function createOrderSection(orderData, index) {
           </thead>
           <tbody>
             <tr>
-                <td><input type="number" class="yun-input" data-field="packages.0.length" value="${data.packages?.[0]?.length || ''}"></td>
-                <td><input type="number" class="yun-input" data-field="packages.0.width" value="${data.packages?.[0]?.width || ''}"></td>
-                <td><input type="number" class="yun-input" data-field="packages.0.height" value="${data.packages?.[0]?.height || ''}"></td>
-                <td><input type="number" class="yun-input" data-field="packages.0.weight" value="${data.packages?.[0]?.weight || ''}"></td>
+                <td><input type="text" data-number="1" class="yun-input" data-field="packages.0.length" value="${data.packages?.[0]?.length || ''}"></td>
+                <td><input type="text" data-number="1" class="yun-input" data-field="packages.0.width" value="${data.packages?.[0]?.width || ''}"></td>
+                <td><input type="text" data-number="1" class="yun-input" data-field="packages.0.height" value="${data.packages?.[0]?.height || ''}"></td>
+                <td><input type="text" data-number="1" class="yun-input" data-field="packages.0.weight" value="${data.packages?.[0]?.weight || ''}"></td>
             </tr>
           </tbody>
         </table>
@@ -942,10 +965,10 @@ function createOrderSection(orderData, index) {
                     <td><input type="text" class="yun-input" data-field="declarationInfo.${i}.sku_code" value="${declaration.sku_code || ''}"></td>
                     <td><input type="text" class="yun-input" data-field="declarationInfo.${i}.name_en" value="${declaration.name_en || ''}"></td>
                     <td><input type="text" class="yun-input" data-field="declarationInfo.${i}.name_local" value="${declaration.name_local || ''}"></td>
-                    <td><input type="number" class="yun-input" data-field="declarationInfo.${i}.quantity" value="${declaration.quantity || ''}"></td>
-                    <td><input type="number" class="yun-input" data-field="declarationInfo.${i}.unit_weight" value="${declaration.unit_weight || ''}"></td>
-                    <td><input type="number" step="0.01" class="yun-input" data-field="declarationInfo.${i}.unit_price" value="${declaration.unit_price || ''}"></td>
-                    <td><input type="number" step="0.01" class="yun-input" data-field="declarationInfo.${i}.selling_price" value="${declaration.selling_price || ''}"></td>
+                    <td><input type="text"  data-number="1" class="yun-input" data-field="declarationInfo.${i}.quantity" value="${declaration.quantity || ''}"></td>
+                    <td><input type="text"  data-number="1" class="yun-input" data-field="declarationInfo.${i}.unit_weight" value="${declaration.unit_weight || ''}"></td>
+                    <td><input type="text"  data-number="1" step="0.01" class="yun-input" data-field="declarationInfo.${i}.unit_price" value="${declaration.unit_price || ''}"></td>
+                    <td><input type="text"  data-number="1" step="0.01" class="yun-input" data-field="declarationInfo.${i}.selling_price" value="${declaration.selling_price || ''}"></td>
                     <td><input type="text" class="yun-input" data-field="declarationInfo.${i}.hs_code" value="${declaration.hs_code || ''}"></td>
                     <td><input type="text" class="yun-input" data-field="declarationInfo.${i}.currency" value="${declaration.currency || 'USD'}"></td>
                   </tr>
