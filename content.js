@@ -386,6 +386,7 @@ function parseEcountData(jsonData) {
             referenceNumbers: [],
             weightUnit: "KG",
             sizeUnit: "CM",
+            productCode: masterData.ADD_LTXT?.ADD_LTXT_02,
             
             receiver: {
                 firstName: masterData?.P_DES2 || "",
@@ -1678,15 +1679,15 @@ class StatusTracker {
                 return hasRemovedRows;
             });
 
-            if (hasImportantChange) {
-                console.log('[THG Extension] Important table change detected');
+            // if (hasImportantChange) {
+            //     console.log('[THG Extension] Important table change detected');
                 
-                // Debounce: chờ 1000ms sau thay đổi cuối cùng (tăng từ 500ms)
-                clearTimeout(this.debounceTimer);
-                this.debounceTimer = setTimeout(() => {
-                    this.processStatuses();
-                }, 1000);
-            }
+            //     // Debounce: chờ 1000ms sau thay đổi cuối cùng (tăng từ 500ms)
+            //     clearTimeout(this.debounceTimer);
+            //     this.debounceTimer = setTimeout(() => {
+            //         this.processStatuses();
+            //     }, 1000);
+            // }
         });
 
         // Observe wrapper-frame-body với config tối ưu
@@ -1701,7 +1702,7 @@ class StatusTracker {
             console.log('[THG Extension] Started observing table changes');
 
             // Process ngay lần đầu
-            setTimeout(() => this.processStatuses(), 1500);
+            // setTimeout(() => this.processStatuses(), 1500);
         }
     }
 
