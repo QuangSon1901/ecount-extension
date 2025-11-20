@@ -379,7 +379,6 @@ function parseEcountData(jsonData) {
         const result = {
             // API format fields
             carrier: "YUNEXPRESS",
-            productCode: "",
             customerOrderNumber: masterData?.P_DES6 || "",
             platformOrderNumber: "",
             trackingNumber: masterData.ADD_TXT?.ADD_TXT_01 || "",
@@ -838,22 +837,22 @@ function createOrderSection(orderData, index) {
                 </select>
               </td>
               <td>
-                <select class="yun-input" data-field="productCode">
+                <select class="yun-input" data-field="productCode" data-test="${data.productCode}">
                   <option value="">Select</option>
-                  <option value="VN-YTYCPREC" ${data.productCode === 'VN-YTYCPREC' ? 'selected' : ''}>VN-YTYCPREC (YUNEXPRESS Vietnamm)</option>
-                  <option value="YTYCPREC" ${data.productCode === 'YTYCPREC' ? 'selected' : ''}>YTYCPREC (YUNEXPRESS Vietnamm)</option>
-                  <option value="VNTHZXR" ${data.productCode === 'VNTHZXR' ? 'selected' : ''}>VNTHZXR (YUNEXPRESS Vietnamm)</option>
-                  <option value="VNMUZXR" ${data.productCode === 'VNMUZXR' ? 'selected' : ''}>VNMUZXR (YUNEXPRESS Vietnamm)</option>
+                  <option value="VN-YTYCPREC" ${data.productCode == 'VN-YTYCPREC' ? 'selected' : ''}>VN-YTYCPREC (YUNEXPRESS Vietnamm)</option>
+                  <option value="VNTHZXR" ${data.productCode == 'VNTHZXR' ? 'selected' : ''}>VNTHZXR (YUNEXPRESS Vietnamm)</option>
+                  <option value="VNBKZXR" ${data.productCode == 'VNBKZXR' ? 'selected' : ''}>VNBKZXR (YUNEXPRESS Vietnamm)</option>
+                  <option value="VNMUZXR" ${data.productCode == 'VNMUZXR' ? 'selected' : ''}>VNMUZXR (YUNEXPRESS Vietnamm)</option>
 
-                  <option value="ZBZXRPH" ${data.productCode === 'ZBZXRPH' ? 'selected' : ''}>ZBZXRPH (YUNEXPRESS China)</option>
-                  <option value="YTYCPREG" ${data.productCode === 'YTYCPREG' ? 'selected' : ''}>YTYCPREG (YUNEXPRESS China)</option>
-                  <option value="YTYCPREC" ${data.productCode === 'YTYCPREC' ? 'selected' : ''}>YTYCPREC (YUNEXPRESS China)</option>
-                  <option value="FZZXR" ${data.productCode === 'FZZXR' ? 'selected' : ''}>FZZXR (YUNEXPRESS China)</option>
-                  <option value="BKPHR" ${data.productCode === 'BKPHR' ? 'selected' : ''}>BKPHR (YUNEXPRESS China)</option>
-                  <option value="THPHR" ${data.productCode === 'THPHR' ? 'selected' : ''}>THPHR (YUNEXPRESS China)</option>
-                  <option value="THZXR" ${data.productCode === 'THZXR' ? 'selected' : ''}>THZXR (YUNEXPRESS China)</option>
-                  <option value="BKZXR" ${data.productCode === 'BKZXR' ? 'selected' : ''}>BKZXR (YUNEXPRESS China)</option>
-                  <option value="MUZXR" ${data.productCode === 'MUZXR' ? 'selected' : ''}>MUZXR (YUNEXPRESS China)</option>
+                  <option value="YTYCPREG" ${data.productCode == 'YTYCPREG' ? 'selected' : ''}>YTYCPREG (YUNEXPRESS China)</option>
+                  <option value="YTYCPREC" ${data.productCode == 'YTYCPREC' ? 'selected' : ''}>YTYCPREC (YUNEXPRESS China)</option>
+                  <option value="FZZXR" ${data.productCode == 'FZZXR' ? 'selected' : ''}>FZZXR (YUNEXPRESS China)</option>
+                  <option value="BKPHR" ${data.productCode == 'BKPHR' ? 'selected' : ''}>BKPHR (YUNEXPRESS China)</option>
+                  <option value="THPHR" ${data.productCode == 'THPHR' ? 'selected' : ''}>THPHR (YUNEXPRESS China)</option>
+                  <option value="THZXR" ${data.productCode == 'THZXR' ? 'selected' : ''}>THZXR (YUNEXPRESS China)</option>
+                  <option value="BKZXR" ${data.productCode == 'BKZXR' ? 'selected' : ''}>BKZXR (YUNEXPRESS China)</option>
+                  <option value="MUZXR" ${data.productCode == 'MUZXR' ? 'selected' : ''}>MUZXR (YUNEXPRESS China)</option>
+                  <option value="ZBZXRPH" ${data.productCode == 'ZBZXRPH' ? 'selected' : ''}>ZBZXRPH (YUNEXPRESS China)</option>
                 </select>
               </td>
               <td><input type="text" class="yun-input" data-field="extraServices.0.extra_code" value="${data.extraServices?.[0]?.extra_code || ''}"></td>
