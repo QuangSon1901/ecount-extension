@@ -462,7 +462,7 @@ function parseEcountData(jsonData) {
                 result.declarationInfo.push({
                     sku_code: "",
                     name_en: item.PROD_DES || "",
-                    name_local: item.PROD_DES || "",
+                    name_local: item.ADD_TXT?.ADD_TXT_05 || "",
                     quantity: parseInt(qty) || 0,
                     unit_price: unitPrice,
                     selling_price: sellingPrice,
@@ -832,8 +832,8 @@ function createOrderSection(orderData, index) {
             <tr>
               <td>
                 <select class="yun-input" data-field="carrier">
-                  <option value="YUNEXPRESS">(Vietnam) YUNEXPRESS</option>
-                  <option value="YUNEXPRESS_CN">(China) YUNEXPRESS</option>
+                  <option value="YUNEXPRESS" ${['VN-YTYCPREC', 'VNTHZXR', 'VNBKZXR', 'VNMUZXR'].includes(data.productCode) ? 'selected' : ''}>(Vietnam) YUNEXPRESS</option>
+                  <option value="YUNEXPRESS_CN" ${['YTYCPREG', 'YTYCPREC', 'FZZXR', 'BKPHR', 'THPHR', 'THZXR', 'BKZXR', 'MUZXR', 'ZBZXRPH'].includes(data.productCode) ? 'selected' : ''}>(China) YUNEXPRESS</option>
                 </select>
               </td>
               <td>
