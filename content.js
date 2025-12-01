@@ -394,7 +394,10 @@ function parseEcountData(jsonData) {
                 countryCode: masterData.ADD_TXT?.ADD_TXT_05 || "",
                 province: masterData.ADD_TXT?.ADD_TXT_09 || "",
                 city: masterData.ADD_TXT?.ADD_TXT_08 || "",
-                addressLines: [masterData.ADD_TXT?.ADD_TXT_06 || ""],
+                addressLines: [
+                    masterData.ADD_TXT?.ADD_TXT_06 || "",
+                    masterData?.P_DES5 || ""
+                ].filter(line => line.trim() !== ""),
                 postalCode: masterData?.P_DES1 || "",
                 phoneNumber: masterData.ADD_TXT?.ADD_TXT_03 || "",
                 email: masterData.P_DES4 || "",
@@ -891,7 +894,8 @@ function createOrderSection(orderData, index) {
               <th style="width: 100px;">Province</th>
               <th style="width: 100px;">City</th>
               <th style="width: 80px;">Postal</th>
-              <th style="width: 200px;">Address</th>
+              <th style="width: 200px;">Address Line 1</th>
+              <th style="width: 200px;">Address Line 2</th>
             </tr>
           </thead>
           <tbody>
@@ -904,7 +908,8 @@ function createOrderSection(orderData, index) {
               <td><input type="text" class="yun-input" data-field="receiver.province" value="${receiver.province || ''}"></td>
               <td><input type="text" class="yun-input" data-field="receiver.city" value="${receiver.city || ''}"></td>
               <td><input type="text" class="yun-input" data-field="receiver.postalCode" value="${receiver.postalCode || ''}"></td>
-              <td><input type="text" class="yun-input" data-field="receiver.addressLines" value="${receiver.addressLines ? receiver.addressLines.join(', ') : ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.addressLines.0" value="${receiver.addressLines?.[0] || ''}"></td>
+                <td><input type="text" class="yun-input" data-field="receiver.addressLines.1" value="${receiver.addressLines?.[1] || ''}"></td>
             </tr>
           </tbody>
         </table>
@@ -1019,8 +1024,12 @@ function collectOrderData(section, originalData) {
         const lastKey = fieldPath[fieldPath.length - 1];
 
         // Xử lý các trường đặc biệt
-        if (field === 'receiver.addressLines') {
-            target[lastKey] = value.split(',').map(s => s.trim()).filter(s => s);
+        if (field === 'receiver.addressLines.0' || field === 'receiver.addressLines.1') {
+            const index = field === 'receiver.addressLines.0' ? 0 : 1;
+            if (!updatedData.receiver.addressLines) {
+                updatedData.receiver.addressLines = [];
+            }
+            updatedData.receiver.addressLines[index] = value;
         } else if (input.type === 'number') {
             target[lastKey] = value ? parseFloat(value) : 0;
         } else {
