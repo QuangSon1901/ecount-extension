@@ -404,6 +404,10 @@ function parseEcountData(jsonData) {
                 certificateType: "",
                 certificateCode: ""
             },
+
+            platform: {
+                platform_name: masterData.REMARKS_WIN || '' 
+            },
             
             packages: [],
             
@@ -924,6 +928,7 @@ function createOrderSection(orderData, index) {
         <table class="yun-compact-table">
           <thead>
             <tr>
+              <th style="width: 60px;">Platform</th>
               <th style="width: 60px;">Package Length (cm)</th>
               <th style="width: 60px;">Package Width (cm)</th>
               <th style="width: 60px;">Package Height (cm)</th>
@@ -932,6 +937,7 @@ function createOrderSection(orderData, index) {
           </thead>
           <tbody>
             <tr>
+                <td><input type="text" data-number="1" class="yun-input" data-field="platform.platform_name" value="${data.platform?.platform_name || ''}"></td>
                 <td><input type="text" data-number="1" class="yun-input" data-field="packages.0.length" value="${data.packages?.[0]?.length || ''}"></td>
                 <td><input type="text" data-number="1" class="yun-input" data-field="packages.0.width" value="${data.packages?.[0]?.width || ''}"></td>
                 <td><input type="text" data-number="1" class="yun-input" data-field="packages.0.height" value="${data.packages?.[0]?.height || ''}"></td>
