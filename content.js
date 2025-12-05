@@ -388,15 +388,15 @@ function parseEcountData(jsonData) {
             productCode: masterData.ADD_LTXT?.ADD_LTXT_02,
             
             receiver: {
-                firstName: masterData?.P_DES2 || "",
+                firstName: fixUTF8Encoding(masterData?.P_DES2 || ""), // ✅ Fix encoding
                 lastName: "",
                 company: "",
                 countryCode: masterData.ADD_TXT?.ADD_TXT_05 || "",
-                province: masterData.ADD_TXT?.ADD_TXT_09 || "",
-                city: masterData.ADD_TXT?.ADD_TXT_08 || "",
+                province: fixUTF8Encoding(masterData.ADD_TXT?.ADD_TXT_09 || ""), // ✅
+                city: fixUTF8Encoding(masterData.ADD_TXT?.ADD_TXT_08 || ""), // ✅
                 addressLines: [
-                    masterData.ADD_TXT?.ADD_TXT_06 || "",
-                    masterData?.P_DES5 || ""
+                    fixUTF8Encoding(masterData.ADD_TXT?.ADD_TXT_06 || ""), // ✅
+                    fixUTF8Encoding(masterData?.P_DES5 || "") // ✅
                 ].filter(line => line.trim() !== ""),
                 postalCode: masterData?.P_DES1 || "",
                 phoneNumber: masterData.ADD_TXT?.ADD_TXT_03 || "",
@@ -440,18 +440,6 @@ function parseEcountData(jsonData) {
         let packageWidth = 0;
         let packageHeight = 0;
 
-        // const dimensions = masterData?.P_DES3 || '';
-        // if (dimensions) {
-        //     const parts = dimensions.split(/x|×/i).map(p => {
-        //         const match = p.match(/[\d.]+/);
-        //         return match ? parseFloat(match[0]) : 0;
-        //     });
-
-        //     packageLength = parts[0] || 0;
-        //     packageWidth  = parts[1] || 0;
-        //     packageHeight = parts[2] || 0;
-        // }
-
         if (Array.isArray(detailsData)) {
             detailsData.forEach((item, index) => {
                 const qty = parseFloat(item.QTY) || 0;
@@ -468,8 +456,8 @@ function parseEcountData(jsonData) {
 
                 result.declarationInfo.push({
                     sku_code: "",
-                    name_en: item.PROD_DES || "",
-                    name_local: item.ADD_TXT?.ADD_TXT_05 || "",
+                    name_en: fixUTF8Encoding(item.PROD_DES || ""), // ✅ Fix encoding
+                    name_local: fixUTF8Encoding(item.ADD_TXT?.ADD_TXT_05 || ""), // ✅ Fix encoding - ĐÂY LÀ CHỖ QUAN TRỌNG!
                     quantity: parseInt(qty) || 0,
                     unit_price: unitPrice,
                     selling_price: sellingPrice,
@@ -502,6 +490,28 @@ function parseEcountData(jsonData) {
         return null;
     }
 }
+
+function fixUTF8Encoding(text) {
+    if (!text || typeof text !== 'string') return text;
+    
+    try {
+        // Nếu text đã OK (không có ký tự lạ), return luôn
+        if (!/[\u00C0-\u00FF]/.test(text)) {
+            return text;
+        }
+        
+        // Encode thành Latin-1 bytes, sau đó decode UTF-8
+        const bytes = new Uint8Array(
+            text.split('').map(char => char.charCodeAt(0) & 0xFF)
+        );
+        
+        return new TextDecoder('utf-8').decode(bytes);
+    } catch (e) {
+        console.warn('[THG Extension] Failed to fix encoding for:', text, e);
+        return text;
+    }
+}
+
 
 // ============================================
 // PART 5: FETCH ORDER INFO VIA API
