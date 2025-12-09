@@ -456,7 +456,7 @@ function parseEcountData(jsonData) {
 
                 result.declarationInfo.push({
                     sku_code: "",
-                    name_en: fixUTF8Encoding(item.PROD_DES || ""), // ✅ Fix encoding
+                    name_en: fixUTF8Encoding(item.ADD_TXT?.ADD_TXT_06 || ""), // ✅ Fix encoding
                     name_local: fixUTF8Encoding(item.ADD_TXT?.ADD_TXT_05 || ""), // ✅ Fix encoding - ĐÂY LÀ CHỖ QUAN TRỌNG!
                     quantity: parseInt(qty) || 0,
                     unit_price: unitPrice,
