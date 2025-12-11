@@ -1,4 +1,4 @@
-const API_URL='https://express.thgfulfill.com';
+const API_URL='https://ecount.sukienquanhtoi.vn';
 
 class LoadingOverlay {
     constructor() {
@@ -416,7 +416,9 @@ function parseEcountData(jsonData) {
             customsNumber: {
                 tax_number: "",
                 ioss_code: masterData.ADD_LTXT?.ADD_LTXT_03 || "",
-                vat_code: "",
+                vat_code: masterData.ADD_NUM?.ADD_NUM_01
+                    ? parseInt(masterData.ADD_NUM.ADD_NUM_01, 10) || ""
+                    : "",
                 eori_number: masterData.ADD_TXT?.ADD_TXT_10 || "",
             },
             
@@ -856,6 +858,7 @@ function createOrderSection(orderData, index) {
               <td>
                 <select class="yun-input" data-field="productCode" data-test="${data.productCode}">
                   <option value="">Select</option>
+                  <option value="S1002" ${data.productCode == 'S1002' ? 'selected' : ''}>S1002 (YUNEXPRESS Vietnamm)</option>
                   <option value="VN-YTYCPREC" ${data.productCode == 'VN-YTYCPREC' ? 'selected' : ''}>VN-YTYCPREC (YUNEXPRESS Vietnamm)</option>
                   <option value="VNTHZXR" ${data.productCode == 'VNTHZXR' ? 'selected' : ''}>VNTHZXR (YUNEXPRESS Vietnamm)</option>
                   <option value="VNBKZXR" ${data.productCode == 'VNBKZXR' ? 'selected' : ''}>VNBKZXR (YUNEXPRESS Vietnamm)</option>
