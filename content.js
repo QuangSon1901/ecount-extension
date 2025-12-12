@@ -1,4 +1,4 @@
-const API_URL='https://ecount.sukienquanhtoi.vn';
+const API_URL='https://express.thgfulfill.com';
 
 class LoadingOverlay {
     constructor() {
@@ -858,7 +858,6 @@ function createOrderSection(orderData, index) {
               <td>
                 <select class="yun-input" data-field="productCode" data-test="${data.productCode}">
                   <option value="">Select</option>
-                  <option value="S1002" ${data.productCode == 'S1002' ? 'selected' : ''}>S1002 (YUNEXPRESS Vietnamm)</option>
                   <option value="VN-YTYCPREC" ${data.productCode == 'VN-YTYCPREC' ? 'selected' : ''}>VN-YTYCPREC (YUNEXPRESS Vietnamm)</option>
                   <option value="VNTHZXR" ${data.productCode == 'VNTHZXR' ? 'selected' : ''}>VNTHZXR (YUNEXPRESS Vietnamm)</option>
                   <option value="VNBKZXR" ${data.productCode == 'VNBKZXR' ? 'selected' : ''}>VNBKZXR (YUNEXPRESS Vietnamm)</option>
