@@ -386,6 +386,9 @@ function parseEcountData(jsonData) {
             weightUnit: "KG",
             sizeUnit: "CM",
             productCode: masterData.ADD_LTXT?.ADD_LTXT_02,
+
+            partnerID: masterData.CUST,
+            partnerName: fixUTF8Encoding(masterData?.CUST_DES || ""),
             
             receiver: {
                 firstName: fixUTF8Encoding(masterData?.P_DES2 || ""), // ✅ Fix encoding
