@@ -1338,7 +1338,7 @@ function tryInjectOnMainPage() {
     if (!header) return;
 
     const text = header.innerText.normalize('NFC').trim();
-    if (text !== "Danh sách đơn bán hàng") return;
+    if (text !== "Danh sách bán hàng") return;
 
     // Lấy tất cả nút "Thêm mới" ở footer (thường có 2)
     const newButtons = document.querySelectorAll('#footer_toolbar_toolbar_item_new button');
@@ -1777,7 +1777,7 @@ function checkAndStartStatusTracking() {
     }
 
     const text = header.innerText.normalize('NFC').trim();
-    if (text === "Danh sách đơn bán hàng") {
+    if (text === "Danh sách bán hàng") {
         // Đợi table load xong
         setTimeout(() => {
             const codeColumnIndex = statusTracker.findCodeColumnIndex();
