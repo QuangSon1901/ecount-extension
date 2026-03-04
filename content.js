@@ -498,21 +498,30 @@ function parseEcountData(jsonData) {
 
 function fixUTF8Encoding(text) {
     if (!text || typeof text !== 'string') return text;
-    
+
     try {
-        // Nếu text đã OK (không có ký tự lạ), return luôn
-        if (!/[\u00C0-\u00FF]/.test(text)) {
+        // Nếu text chứa ký tự > U+00FF → đã là Unicode đúng rồi, không cần fix
+        // (Latin-1 chỉ tạo ra ký tự trong range U+0000-U+00FF)
+        if (/[^\u0000-\u00FF]/.test(text)) {
             return text;
         }
-        
-        // Encode thành Latin-1 bytes, sau đó decode UTF-8
+
+        // Nếu chỉ có ASCII thuần → không cần fix
+        if (!/[\u0080-\u00FF]/.test(text)) {
+            return text;
+        }
+
+        // Thử interpret các ký tự như raw bytes và decode UTF-8
         const bytes = new Uint8Array(
             text.split('').map(char => char.charCodeAt(0) & 0xFF)
         );
-        
-        return new TextDecoder('utf-8').decode(bytes);
+
+        // fatal: true → throw error nếu không phải UTF-8 hợp lệ
+        // thay vì tạo ra ký tự thay thế � (U+FFFD)
+        return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     } catch (e) {
-        console.warn('[THG Extension] Failed to fix encoding for:', text, e);
+        // Decode thất bại → text đã đúng sẵn (ví dụ "Móstoles" với ó = U+00F3)
+        // Return nguyên bản
         return text;
     }
 }
