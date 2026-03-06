@@ -539,6 +539,12 @@ function parseEcountDataPOD(masterData, detailsData, defaultOption) {
             erpStatus: 'Đang xử lý',
             ecountLink: window.location.hash,
 
+            tracking: {
+                trackingNumber: masterData.ADD_TXT?.ADD_TXT_10 || '',
+                linkPrint: masterData.ADD_TXT?.ADD_TXT_12 || '',
+                carrier: ''
+            },
+
             receiver: {
                 firstName: fixUTF8Encoding(masterData?.P_DES2 || ''),
                 lastName: '',
@@ -1153,7 +1159,8 @@ function createPODOrderSection(orderData, index) {
               <th style="width: 120px;">Carrier</th>
               <th style="width: 150px;">Shipping Method <img class="apply-field-all" data-key="shippingMethod" width="14" height="14" style="float: inline-end;" src="https://express.thgfulfill.com/uploads/apply-to-all.webp"></th>
               <th style="width: 150px;">Customer Order No.</th>
-              <th style="width: 120px;">ERP Status</th>
+              <th style="width: 120px;">Tracking Number</th>
+              <th style="width: 120px;">Shipping Label</th>
             </tr>
           </thead>
           <tbody>
@@ -1167,7 +1174,8 @@ function createPODOrderSection(orderData, index) {
               </td>
               <td><input type="text" class="yun-input" data-field="shippingMethod" value="${data.shippingMethod || ''}"></td>
               <td><input type="text" class="yun-input" data-field="customerOrderNumber" value="${data.customerOrderNumber || ''}"></td>
-              <td><input type="text" class="yun-input" data-field="erpStatus" value="${data.erpStatus || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="tracking.trackingNumber" value="${data.tracking?.trackingNumber || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="tracking.linkPrint" value="${data.tracking?.linkPrint || ''}"></td>
             </tr>
           </tbody>
         </table>
