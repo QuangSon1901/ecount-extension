@@ -1,5 +1,12 @@
 const API_URL='https://express.thgfulfill.com';
 
+// POD factory carrier mapping: Location code → Carrier name
+const POD_CARRIER_MAP = {
+    '001': 'Printposs',
+    '002': 'ONOS',
+    '004': 'S2BDIY'
+};
+
 class LoadingOverlay {
     constructor() {
         this.overlay = null;
@@ -376,7 +383,14 @@ function parseEcountData(jsonData) {
             ? JSON.parse(detailsString)
             : detailsString;
 
+        // Detect POD order by WH_CD (Location code)
+        const whCode = masterData?.WH_CD || '';
+        if (POD_CARRIER_MAP.hasOwnProperty(whCode)) {
+            return parseEcountDataPOD(masterData, detailsData, defaultOption);
+        }
+
         const result = {
+            _orderType: 'express',
             // API format fields
             carrier: "YUNEXPRESS",
             customerOrderNumber: masterData?.P_DES6 || "",
@@ -492,6 +506,84 @@ function parseEcountData(jsonData) {
 
     } catch (error) {
         console.error('[THG Extension] Error parsing data:', error);
+        return null;
+    }
+}
+
+// ============================================
+// PART 4B: PARSE ECOUNT DATA FOR POD ORDERS
+// ============================================
+
+function parseEcountDataPOD(masterData, detailsData, defaultOption) {
+    try {
+        const whCode = masterData?.WH_CD || '';
+        const carrier = POD_CARRIER_MAP[whCode] || 'UNKNOWN';
+
+        const service = masterData.PJT_CD || '';
+        let shippingMethod = '';
+        switch (service) {
+            case 'SBSL':
+                shippingMethod = 'EXPRESS_US';
+                break;
+            default:
+                shippingMethod = service;
+        }
+
+        const result = {
+            _orderType: 'pod',
+            carrier: carrier,
+            partnerID: masterData.CUST || '',
+            partnerName: fixUTF8Encoding(masterData?.CUST_DES || ''),
+            customerOrderNumber: masterData?.P_DES6 || '',
+            erpOrderCode: defaultOption?.DocNo || '',
+            erpStatus: 'Đang xử lý',
+            ecountLink: window.location.hash,
+
+            receiver: {
+                firstName: fixUTF8Encoding(masterData?.P_DES2 || ''),
+                lastName: '',
+                countryCode: masterData.ADD_TXT?.ADD_TXT_05 || '',
+                province: fixUTF8Encoding(masterData?.P_DES5 || ''),
+                city: fixUTF8Encoding(masterData.ADD_TXT?.ADD_TXT_04 || ''),
+                addressLines: [
+                    fixUTF8Encoding(masterData?.P_DES3 || ''),
+                    fixUTF8Encoding(masterData?.P_DES1 || '')
+                ].filter(line => line.trim() !== ''),
+                postalCode: masterData?.ADD_TXT?.ADD_TXT_01 || '',
+                phoneNumber: masterData.ADD_TXT?.ADD_TXT_11 || '',
+                email: masterData?.ADD_TXT?.ADD_TXT_02 || ''
+            },
+
+            items: [],
+            shippingMethod: shippingMethod
+        };
+
+        // Parse detail items
+        if (Array.isArray(detailsData)) {
+            detailsData.forEach(item => {
+                // Design URL: ADD_TXT_07 in detail items
+                const designUrl = item.ADD_TXT?.ADD_TXT_07 || '';
+                // Mockup URL: REMARKS in detail items
+                const mockupUrl = item.REMARKS || '';
+
+                result.items.push({
+                    sku: item.PROD_CD || '',
+                    product_id: 'THG',
+                    name: fixUTF8Encoding(item.PROD_DES || ''),
+                    quantity: parseInt(item.QTY) || 0,
+                    price: parseFloat(item.PRICE) || 0,
+                    image: mockupUrl,
+                    print_areas: designUrl ? [{ key: 'front', value: designUrl }] : [],
+                    design_urls: designUrl ? [{ key: 'front', value: designUrl }] : []
+                });
+            });
+        }
+
+        console.log('[THG Extension] Parsed POD data:', result);
+        return result;
+
+    } catch (error) {
+        console.error('[THG Extension] Error parsing POD data:', error);
         return null;
     }
 }
@@ -690,10 +782,20 @@ function createOrderModal(ordersData) {
     const modal = document.createElement('div');
     modal.className = 'yun-modal';
 
+    // Detect if orders are POD, express, or mixed
+    const hasPOD = ordersData.some(o => o.data?._orderType === 'pod');
+    const hasExpress = ordersData.some(o => o.data?._orderType === 'express');
+    const modalTitle = hasPOD && !hasExpress
+        ? `Gửi đơn xưởng - ${ordersData.length} đơn hàng`
+        : hasExpress && !hasPOD
+            ? `Confirm Label Purchase - ${ordersData.length} order(s)`
+            : `Submit Orders - ${ordersData.length} order(s)`;
+    const submitText = hasPOD && !hasExpress ? 'Gửi đơn xưởng' : hasExpress && !hasPOD ? 'Purchase Labels' : 'Submit Orders';
+
     const header = document.createElement('div');
     header.className = 'yun-modal-header';
     header.innerHTML = `
-    <h3>Confirm Label Purchase - ${ordersData.length} order(s)</h3>
+    <h3>${modalTitle}</h3>
     <button class="yun-modal-close">&times;</button>
   `;
 
@@ -701,7 +803,10 @@ function createOrderModal(ordersData) {
     body.className = 'yun-modal-body';
 
     ordersData.forEach((orderData, index) => {
-        const orderSection = createOrderSection(orderData, index);
+        const orderType = orderData.data?._orderType || 'express';
+        const orderSection = orderType === 'pod'
+            ? createPODOrderSection(orderData, index)
+            : createOrderSection(orderData, index);
         body.appendChild(orderSection);
     });
 
@@ -714,7 +819,7 @@ function createOrderModal(ordersData) {
     </div>
     <div style="display: flex; gap: 8px;">
       <button class="yun-btn yun-btn-cancel">Cancel</button>
-      <button class="yun-btn yun-btn-submit">Purchase Labels</button>
+      <button class="yun-btn yun-btn-submit">${submitText}</button>
     </div>
   `;
 
@@ -1018,6 +1123,135 @@ function createOrderSection(orderData, index) {
     return section;
 }
 
+// ============================================
+// PART 8B: CREATE POD ORDER SECTION
+// ============================================
+
+function createPODOrderSection(orderData, index) {
+    const section = document.createElement('div');
+    section.className = 'yun-order-section';
+    section.setAttribute('data-order-index', index);
+    section.setAttribute('data-order-type', 'pod');
+
+    const data = orderData.data;
+    const receiver = data.receiver;
+    const itemCount = data.items?.length || 0;
+
+    section.innerHTML = `
+    <div class="yun-order-header">
+      <h4>#${index + 1} - ${data.erpOrderCode || 'N/A'} - ${data.customerOrderNumber} <span style="background: #4caf50; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 8px;">POD - ${data.carrier}</span></h4>
+      <button class="yun-order-toggle" onclick="this.closest('.yun-order-section').querySelector('.yun-order-content').classList.toggle('active'); this.textContent = this.textContent === '▼' ? '▲' : '▼';">▼</button>
+    </div>
+
+    <div class="yun-order-content ${index === 0 ? 'active' : ''}">
+
+      <!-- Main info table -->
+      <div class="yun-table-wrapper">
+        <table class="yun-compact-table">
+          <thead>
+            <tr>
+              <th style="width: 120px;">Carrier</th>
+              <th style="width: 150px;">Shipping Method <img class="apply-field-all" data-key="shippingMethod" width="14" height="14" style="float: inline-end;" src="https://express.thgfulfill.com/uploads/apply-to-all.webp"></th>
+              <th style="width: 150px;">Customer Order No.</th>
+              <th style="width: 120px;">ERP Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <select class="yun-input" data-field="carrier">
+                  <option value="Printposs" ${data.carrier === 'Printposs' ? 'selected' : ''}>Printposs (001)</option>
+                  <option value="ONOS" ${data.carrier === 'ONOS' ? 'selected' : ''}>ONOS (002)</option>
+                  <option value="S2BDIY" ${data.carrier === 'S2BDIY' ? 'selected' : ''}>S2BDIY (004)</option>
+                </select>
+              </td>
+              <td><input type="text" class="yun-input" data-field="shippingMethod" value="${data.shippingMethod || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="customerOrderNumber" value="${data.customerOrderNumber || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="erpStatus" value="${data.erpStatus || ''}"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="yun-divider">
+        <span class="yun-divider-label">Receiver Info</span>
+      </div>
+
+      <!-- Receiver table -->
+      <div class="yun-table-wrapper">
+        <table class="yun-compact-table">
+          <thead>
+            <tr>
+              <th style="width: 100px;">First Name</th>
+              <th style="width: 100px;">Last Name</th>
+              <th style="width: 100px;">Phone</th>
+              <th style="width: 150px;">Email</th>
+              <th style="width: 60px;">Country</th>
+              <th style="width: 100px;">Province</th>
+              <th style="width: 100px;">City</th>
+              <th style="width: 80px;">Postal</th>
+              <th style="width: 200px;">Address Line 1</th>
+              <th style="width: 200px;">Address Line 2</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><input type="text" class="yun-input" data-field="receiver.firstName" value="${receiver.firstName || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.lastName" value="${receiver.lastName || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.phoneNumber" value="${receiver.phoneNumber || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.email" value="${receiver.email || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.countryCode" value="${receiver.countryCode || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.province" value="${receiver.province || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.city" value="${receiver.city || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.postalCode" value="${receiver.postalCode || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.addressLines.0" value="${receiver.addressLines?.[0] || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="receiver.addressLines.1" value="${receiver.addressLines?.[1] || ''}"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="yun-divider">
+        <span class="yun-divider-label">Items (${itemCount})</span>
+      </div>
+
+      <!-- POD Items table -->
+      <div class="yun-table-wrapper">
+        <table class="yun-compact-table">
+          <thead>
+            <tr>
+              <th style="width: 30px;">#</th>
+              <th style="width: 120px;">SKU</th>
+              <th style="width: 60px;">Product ID</th>
+              <th style="width: 180px;">Name</th>
+              <th style="width: 60px;">Quantity</th>
+              <th style="width: 80px;">Price</th>
+              <th style="width: 250px;">Design URL</th>
+              <th style="width: 250px;">Mockup URL</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(data.items || []).map((item, i) => `
+              <tr>
+                <td style="text-align: center; color: #999;">${i + 1}</td>
+                <td><input type="text" class="yun-input" data-field="items.${i}.sku" value="${item.sku || ''}"></td>
+                <td><input type="text" class="yun-input" data-field="items.${i}.product_id" value="${item.product_id || 'THG'}"></td>
+                <td><input type="text" class="yun-input" data-field="items.${i}.name" value="${item.name || ''}"></td>
+                <td><input type="text" data-number="1" class="yun-input" data-field="items.${i}.quantity" value="${item.quantity || ''}"></td>
+                <td><input type="text" data-number="1" step="0.01" class="yun-input" data-field="items.${i}.price" value="${item.price || ''}"></td>
+                <td><input type="text" class="yun-input" data-field="items.${i}.print_areas.0.value" value="${item.print_areas?.[0]?.value || ''}"></td>
+                <td><input type="text" class="yun-input" data-field="items.${i}.image" value="${item.image || ''}"></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+    return section;
+}
+
 
 // ============================================
 // PART 9: COLLECT ORDER DATA
@@ -1077,6 +1311,35 @@ function collectOrderData(section, originalData) {
 }
 
 // ============================================
+// PART 9B: COLLECT POD ORDER DATA
+// ============================================
+
+function collectPODOrderData(section, originalData) {
+    // Reuse base collection logic
+    const updatedData = collectOrderData(section, originalData);
+
+    // POD-specific: sync print_areas and design_urls from image field
+    // if (updatedData.items) {
+    //     updatedData.items.forEach(item => {
+    //         if (item.image) {
+    //             item.print_areas = [{ key: 'front', value: item.image }];
+    //             item.design_urls = [{ key: 'front', value: item.image }];
+    //         } else {
+    //             item.print_areas = [];
+    //             item.design_urls = [];
+    //         }
+    //         // Remove mockup from payload (used only for display)
+    //         delete item.mockup;
+    //     });
+    // }
+
+    // Remove internal type marker
+    delete updatedData._orderType;
+
+    return updatedData;
+}
+
+// ============================================
 // PART 10: SUBMIT ORDERS
 // ============================================
 
@@ -1092,7 +1355,16 @@ async function handleSubmitOrders(ordersData) {
 
         ordersData.forEach((orderData, index) => {
             const section = document.querySelector(`[data-order-index="${index}"]`);
-            const updatedData = collectOrderData(section, orderData);
+            const orderType = orderData.data?._orderType || 'express';
+
+            let updatedData;
+            if (orderType === 'pod') {
+                updatedData = collectPODOrderData(section, orderData);
+            } else {
+                updatedData = collectOrderData(section, orderData);
+                delete updatedData._orderType;
+            }
+
             processedOrders.push(updatedData);
         });
 
