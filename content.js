@@ -1161,6 +1161,7 @@ function createPODOrderSection(orderData, index) {
               <th style="width: 150px;">Customer Order No.</th>
               <th style="width: 120px;">Tracking Number</th>
               <th style="width: 120px;">Shipping Label</th>
+              <th style="width: 120px;">Carrier Label</th>
             </tr>
           </thead>
           <tbody>
@@ -1176,6 +1177,7 @@ function createPODOrderSection(orderData, index) {
               <td><input type="text" class="yun-input" data-field="customerOrderNumber" value="${data.customerOrderNumber || ''}"></td>
               <td><input type="text" class="yun-input" data-field="tracking.trackingNumber" value="${data.tracking?.trackingNumber || ''}"></td>
               <td><input type="text" class="yun-input" data-field="tracking.linkPrint" value="${data.tracking?.linkPrint || ''}"></td>
+              <td><input type="text" class="yun-input" data-field="tracking.carrier" value="${data.tracking?.carrier || ''}"></td>
             </tr>
           </tbody>
         </table>
