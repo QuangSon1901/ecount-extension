@@ -542,7 +542,7 @@ function parseEcountDataPOD(masterData, detailsData, defaultOption) {
             tracking: {
                 trackingNumber: masterData.ADD_TXT?.ADD_TXT_10 || '',
                 linkPrint: masterData.ADD_TXT?.ADD_TXT_12 || '',
-                carrier: ''
+                carrier: service === 'SBTT' ? 'USPS' : ''
             },
 
             receiver: {
