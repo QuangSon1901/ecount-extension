@@ -578,6 +578,8 @@ function parseEcountDataPOD(masterData, detailsData, defaultOption) {
                     name: fixUTF8Encoding(item.PROD_DES || ''),
                     quantity: parseInt(item.QTY) || 0,
                     price: parseFloat(item.PRICE) || 0,
+                    product_color: fixUTF8Encoding(item.ADD_TXT?.ADD_TXT_04 || ''),
+                    product_size: fixUTF8Encoding(item.ADD_TXT?.ADD_TXT_03 || ''),
                     image: mockupUrl,
                     print_areas: designUrl ? [{ key: 'front', value: designUrl }] : [],
                     design_urls: designUrl ? [{ key: 'front', value: designUrl }] : []
@@ -1236,6 +1238,8 @@ function createPODOrderSection(orderData, index) {
               <th style="width: 180px;">Name</th>
               <th style="width: 60px;">Quantity</th>
               <th style="width: 80px;">Price</th>
+              <th style="width: 60px;">Size</th>
+              <th style="width: 60px;">Color</th>
               <th style="width: 250px;">Design URL</th>
               <th style="width: 250px;">Mockup URL</th>
             </tr>
@@ -1249,6 +1253,8 @@ function createPODOrderSection(orderData, index) {
                 <td><input type="text" class="yun-input" data-field="items.${i}.name" value="${item.name || ''}"></td>
                 <td><input type="text" data-number="1" class="yun-input" data-field="items.${i}.quantity" value="${item.quantity || ''}"></td>
                 <td><input type="text" data-number="1" step="0.01" class="yun-input" data-field="items.${i}.price" value="${item.price || ''}"></td>
+                <td><input type="text" class="yun-input" data-field="items.${i}.product_size" value="${item.product_size || ''}"></td>
+                <td><input type="text" class="yun-input" data-field="items.${i}.product_color" value="${item.product_color || ''}"></td>
                 <td><input type="text" class="yun-input" data-field="items.${i}.print_areas.0.value" value="${item.print_areas?.[0]?.value || ''}"></td>
                 <td><input type="text" class="yun-input" data-field="items.${i}.image" value="${item.image || ''}"></td>
               </tr>
@@ -1325,26 +1331,16 @@ function collectOrderData(section, originalData) {
 // ============================================
 
 function collectPODOrderData(section, originalData) {
-    // Reuse base collection logic
     const updatedData = collectOrderData(section, originalData);
 
-    // POD-specific: sync print_areas and design_urls from image field
-    // if (updatedData.items) {
-    //     updatedData.items.forEach(item => {
-    //         if (item.image) {
-    //             item.print_areas = [{ key: 'front', value: item.image }];
-    //             item.design_urls = [{ key: 'front', value: item.image }];
-    //         } else {
-    //             item.print_areas = [];
-    //             item.design_urls = [];
-    //         }
-    //         // Remove mockup from payload (used only for display)
-    //         delete item.mockup;
-    //     });
-    // }
-
-    // Remove internal type marker
-    delete updatedData._orderType;
+    if (updatedData.items) {
+        updatedData.items.forEach(item => {
+            item.attributes = [
+                { name: 'Size', option: item.product_size || '' },
+                { name: 'Color', option: item.product_color || '' }
+            ]
+        });
+    }
 
     return updatedData;
 }
