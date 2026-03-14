@@ -2,7 +2,7 @@ const API_URL='https://express.thgfulfill.com';
 
 // POD factory carrier mapping: Location code → Carrier name
 const POD_CARRIER_MAP = {
-    '001': 'Printposs',
+    '001': 'PRINTPOSS',
     '002': 'ONOS',
     '004': 'S2BDIY'
 };
@@ -1170,7 +1170,7 @@ function createPODOrderSection(orderData, index) {
             <tr>
               <td>
                 <select class="yun-input" data-field="carrier">
-                  <option value="Printposs" ${data.carrier === 'Printposs' ? 'selected' : ''}>Printposs (001)</option>
+                  <option value="PRINTPOSS" ${data.carrier === 'PRINTPOSS' ? 'selected' : ''}>Printposs (001)</option>
                   <option value="ONOS" ${data.carrier === 'ONOS' ? 'selected' : ''}>ONOS (002)</option>
                   <option value="S2BDIY" ${data.carrier === 'S2BDIY' ? 'selected' : ''}>S2BDIY (004)</option>
                 </select>
